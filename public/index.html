@@ -13,10 +13,11 @@
   :root {
     --ground: #eef1f4; --panel: #ffffff; --ink: #1d2733; --slate: #5b6875; --rule: #d5dbe1;
     --signal: #2a4bd7; --signal-soft: #e3e8fb;
+    --ax-0: #2f6fde; --ax-1: #d98a00; --ax-2: #b8409a; /* X, Y, Z axis colours */
     --font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --ground: #1a212b; --panel: #222b37; --ink: #e8edf2; --slate: #9aa7b5; --rule: #344050; --signal: #8a9dff; --signal-soft: #2b3554; }
+    :root { --ground: #1a212b; --panel: #222b37; --ink: #e8edf2; --slate: #9aa7b5; --rule: #344050; --signal: #8a9dff; --signal-soft: #2b3554; --ax-0: #6f9bff; --ax-1: #f0a830; --ax-2: #e06cc4; }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
@@ -48,6 +49,9 @@
   .measures { list-style: none; margin: 10px 0 0; padding: 0; color: var(--ink); }
   .measures li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
   .measures span:last-child { color: var(--slate); font-size: 13px; }
+  .ax-mark { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 2px; vertical-align: 0; }
+  .ax-mark-0 { background: var(--ax-0); } .ax-mark-1 { background: var(--ax-1); } .ax-mark-2 { background: var(--ax-2); }
+  .ax-text-0 { color: var(--ax-0); } .ax-text-1 { color: var(--ax-1); } .ax-text-2 { color: var(--ax-2); }
   #custom { display: grid; gap: 8px; margin-top: 10px; }
   #custom label { display: grid; grid-template-columns: 52px 1fr; align-items: center; color: var(--slate); font-size: 13px; }
   select { width: 100%; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }

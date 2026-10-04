@@ -225,7 +225,7 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
     const g = $('svGuide');
     g.setAttribute('viewBox', '-65 -65 130 130');
     guide = getState().axes.map((k, i) => ({ line: svg('line', { x1: 0, y1: 0 }), text: svg('text'), dir: AXIS_DIRS[i].clone().multiplyScalar(betterSign(k)), word: BETTER[k] }));
-    for (const x of guide) x.text.textContent = x.word;
+    guide.forEach((x, i) => { x.text.textContent = x.word; x.line.style.stroke = x.text.style.fill = `var(--ax-${i})`; }); // same colour as the axis in the chart
     g.replaceChildren(svg('circle', { r: 3 }), ...guide.flatMap(x => [x.line, x.text]));
     updateGuide();
   }

@@ -79,7 +79,7 @@ function customPicker() {
     const s = el('select', { 'aria-label': label + ' axis' });
     for (const [k, m] of Object.entries(MEASURES)) s.append(el('option', { value: k, textContent: m.name }));
     s.onchange = () => { axes[i] = s.value; change(); };
-    wrap.append(el('label', {}, el('span', { textContent: label + ' axis' }), s));
+    wrap.append(el('label', {}, el('span', { className: 'ax-text-' + i, textContent: label + ' axis' }), s));
   });
   wrap.append(el('ul', { className: 'measures', id: 'm-custom' }));
   return wrap;
@@ -90,7 +90,7 @@ function renderMeasures() {
   for (const q of QUESTIONS) {
     const ul = $('m-' + q.id);
     if (q.id !== question) { ul.replaceChildren(); continue; }
-    ul.replaceChildren(...axes.map(k => el('li', {}, el('span', { textContent: MEASURES[k].name }), el('span', { textContent: MEASURES[k].better }))));
+    ul.replaceChildren(...axes.map((k, i) => el('li', {}, el('span', {}, el('i', { className: 'ax-mark ax-mark-' + i }), MEASURES[k].name), el('span', { textContent: MEASURES[k].better }))));
   }
   document.querySelectorAll('#custom select').forEach((s, i) => { s.value = axes[i]; });
   document.querySelector(`input[name=question][value=${question}]`).checked = true;

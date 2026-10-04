@@ -120,20 +120,23 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     clear(frame);
     const k = labelScale(), e = k - 1; // e: extra room that bigger labels need
     last = { scales, titles }; builtK = k;
-    const rule = css('--rule'), ink = css('--ink'), slate = css('--slate'), V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const rule = css('--rule'), V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const [cx, cy, cz] = [0, 1, 2].map(i => css(`--ax-${i}`)); // one colour per axis, shared with the sidebar and Street View guide
     frame.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)), new THREE.LineBasicMaterial({ color: rule })));
+    // the three edges the tick labels sit on, in their axis colour
+    frame.add(segments([V(-1, -1, -1), V(1, -1, -1)], cx), segments([V(1, -1, -1), V(1, -1, 1)], cy), segments([V(-1, -1, -1), V(-1, 1, -1)], cz));
     const [tx, ty, tz] = scales.map(s => ticks(s)), grid = [];
     for (const t of tx) grid.push(V(t.cube, -1, -1), V(t.cube, -1, 1), V(t.cube, -1, 1), V(t.cube, 1, 1));
     for (const t of ty) { const z = -t.cube; grid.push(V(-1, -1, z), V(1, -1, z), V(-1, -1, z), V(-1, 1, z)); }
     for (const t of tz) grid.push(V(-1, t.cube, -1), V(-1, t.cube, 1), V(-1, t.cube, 1), V(1, t.cube, 1));
     frame.add(segments(grid, rule, 0.7));
     const tick = 0.09 * k, title = 0.11 * k;
-    for (const t of tx) frame.add(at(textSprite(t.label, tick, slate), t.cube, -1 - 0.05 * e, -1.14));
-    for (const t of ty) frame.add(at(textSprite(t.label, tick, slate), 1.14, -1 - 0.1 * e, -t.cube));
-    for (const t of tz) frame.add(at(textSprite(t.label, tick, slate), -1.12 - 0.05 * e, t.cube, -1.06 - 0.05 * e));
-    frame.add(at(textSprite(titles[0], title, ink, 600), 0, -1.12, -1.45 - 0.3 * e));
-    frame.add(at(textSprite(titles[1], title, ink, 600), 1.45 + 0.3 * e, -1.12, 0));
-    frame.add(at(textSprite(titles[2], title, ink, 600), -1.0 + 0.3 * e, 1.2 + 0.4 * e, -1.0 + 0.3 * e));
+    for (const t of tx) frame.add(at(textSprite(t.label, tick, cx), t.cube, -1 - 0.05 * e, -1.14));
+    for (const t of ty) frame.add(at(textSprite(t.label, tick, cy), 1.14, -1 - 0.1 * e, -t.cube));
+    for (const t of tz) frame.add(at(textSprite(t.label, tick, cz), -1.12 - 0.05 * e, t.cube, -1.06 - 0.05 * e));
+    frame.add(at(textSprite(titles[0], title, cx, 700), 0, -1.12, -1.45 - 0.3 * e));
+    frame.add(at(textSprite(titles[1], title, cy, 700), 1.45 + 0.3 * e, -1.12, 0));
+    frame.add(at(textSprite(titles[2], title, cz, 700), -1.0 + 0.3 * e, 1.2 + 0.4 * e, -1.0 + 0.3 * e));
   }
 
   // ---------- data ----------
