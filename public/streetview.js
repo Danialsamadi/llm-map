@@ -2,8 +2,10 @@
 import * as THREE from 'three';
 import { BETTER, betterSign, FLY_START } from './space.js';
 import { stand } from './modes/stand.js';
+import { fly } from './modes/fly.js';
+import { ride } from './modes/ride.js';
 
-const MODES = { stand };
+const MODES = { stand, fly, ride };
 const D2R = Math.PI / 180;
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => {
