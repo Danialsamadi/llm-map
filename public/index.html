@@ -26,7 +26,7 @@
   .muted { color: var(--muted); }
   #count { color: var(--muted); }
   #badge { padding: 2px 10px; border: 1px solid var(--grid); border-radius: 999px; color: var(--muted); }
-  #chart { flex: 1; min-height: 0; }
+  #chart { flex: 1; min-height: 0; touch-action: none; }
   #chart p { padding: 16px; }
   footer { padding: 6px 16px; color: var(--muted); font-size: 12px; }
   footer a { color: inherit; }
@@ -49,7 +49,7 @@
   <span id="badge">Loading…</span>
 </header>
 <div id="chart"></div>
-<footer>Drag to rotate · scroll to zoom · click a company to hide it, double-click to show only it. Lines join each company's models in release order.
+<footer>Drag to rotate · scroll to zoom · pinch to zoom on phones · pick companies in the Companies menu. Lines join each company's models in release order.
   Data: <a href="https://artificialanalysis.ai/">Artificial Analysis</a> · <a href="https://arcprize.org/leaderboard">ARC Prize</a> (ARC-AGI-2).</footer>
 <script>
 const AXES = {
@@ -99,6 +99,10 @@ function axis(k) {
   return { title: { text: mq.matches ? a.short : a.label, font: { size: 16 } }, tickfont: { size: 13 }, type: a.log ? 'log' : a.date ? 'date' : 'linear', gridcolor: css('--grid'), color: css('--fg') };
 }
 
+// the view as the user left it (rotate, wheel, pinch), so redraws keep it; remembered because the scene is gone while no company is shown
+let lastCamera;
+const liveCamera = () => lastCamera = $('chart')._fullLayout?.scene?._scene?.getCamera() ?? lastCamera;
+
 function draw() {
   const sel = ['x', 'y', 'z'].map(id => $(id).value);
   const shown = data.models.filter(m => picked.has(m.company) && sel.every(k => m[k] != null));
@@ -115,7 +119,7 @@ function draw() {
   // camera: phone canvas is small, so further out; so is a short desktop canvas (header wraps), where 1.2 clips the axis titles
   const d = mq.matches ? 1.45 : $('chart').clientHeight < 700 ? 1.25 : 1.2;
   Plotly.react('chart', traces, {
-    scene: { xaxis, yaxis, zaxis, aspectmode: 'cube', camera: { eye: { x: d, y: d, z: d } } },
+    scene: { xaxis, yaxis, zaxis, aspectmode: 'cube', camera: liveCamera() ?? { eye: { x: d, y: d, z: d } } },
     paper_bgcolor: 'rgba(0,0,0,0)', font: { color: css('--fg') },
     margin: { l: 0, r: 0, t: 0, b: 0 },
     showlegend: false,
@@ -172,6 +176,27 @@ det.ontoggle = () => {
 document.addEventListener('pointerdown', e => { if (!det.contains(e.target)) det.open = false; }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && det.open) { det.open = false; $('sum').focus(); } });
 mq.addEventListener('change', () => data && draw());
+// Plotly 3D ignores two-finger gestures: pinch scales the camera distance ourselves
+let pinch = 0, scale = 1, frame = 0;
+const spread = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+function touch(e) {
+  if (e.touches.length !== 2) { pinch = 0; return; } // one finger: leave it to Plotly (rotate)
+  e.preventDefault(); e.stopPropagation(); // two fingers: ours only, so Plotly does not also rotate
+  const d = spread(e.touches);
+  if (e.type === 'touchmove' && pinch && d) {
+    scale *= pinch / d; // fingers apart -> d grows -> eye moves closer
+    frame ||= requestAnimationFrame(() => {
+      frame = 0;
+      const cam = liveCamera();
+      if (!cam) return; // no plot (data failed to load)
+      const { x, y, z } = cam.eye, len = Math.hypot(x, y, z), k = Math.min(6, Math.max(0.4, len * scale)) / len;
+      scale = 1;
+      Plotly.relayout('chart', { 'scene.camera.eye': { x: x * k, y: y * k, z: z * k } }); // same direction, new distance
+    });
+  }
+  pinch = d;
+}
+for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) $('chart').addEventListener(type, touch, { capture: true, passive: false });
 load().then(d => { data = d; badge(); init(); }).catch(() => {
   $('badge').textContent = 'No data';
   $('chart').innerHTML = '<p>Could not load model data. Please try again later.</p>';
