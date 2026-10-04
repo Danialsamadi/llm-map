@@ -147,7 +147,8 @@
   dialog li { margin: 3px 0; }
   dialog strong { color: var(--ink); font-weight: 600; }
   dialog a { color: var(--signal); }
-  dialog form { text-align: right; margin-top: 18px; }
+  .dialog-head { position: sticky; top: -26px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -26px -28px 8px; padding: 22px 28px 12px; background: var(--panel); }
+  .dialog-head h2 { margin: 0 !important; }
   @keyframes arrive { from { opacity: 0; transform: scale(.94); filter: blur(6px); } }
   @media (prefers-reduced-motion: reduce) { dialog[open] { animation: fade .2s ease; } @keyframes fade { from { opacity: 0; } } }
 
@@ -275,7 +276,8 @@
 <div id="svHint" class="glass" hidden></div>
 
 <dialog id="about" aria-labelledby="about-h">
-  <h2 id="about-h">How to use this map</h2>
+  <!-- Done comes first so opening the dialog focuses it here at the top; focusing a link lower down scrolled the dialog -->
+  <form method="dialog" class="dialog-head"><h2 id="about-h">How to use this map</h2><button class="btn">Done</button></form>
   <ul>
     <li>Each dot is one AI model. Each line joins one company's models, oldest to newest.</li>
     <li>Drag to turn the chart. Scroll, or pinch on a phone, to zoom.</li>
@@ -288,7 +290,6 @@
   <h2>Where the numbers come from</h2>
   <p>Smartness, cost, price, speed and release dates come from <a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a>. ARC-AGI-2 scores come from the <a href="https://arcprize.org/leaderboard" target="_blank" rel="noopener">ARC Prize leaderboard</a> and are matched to the same model and effort setting; models ARC hasn't tested have no score.</p>
   <p id="about-status"></p>
-  <form method="dialog"><button class="btn">Done</button></form>
 </dialog>
 
 <script type="module" src="app.js"></script>
