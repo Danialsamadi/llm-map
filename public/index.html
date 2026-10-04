@@ -10,7 +10,7 @@
   @media (prefers-color-scheme: dark) { :root { --bg: #0e1117; --fg: #e6e6e6; --muted: #9aa4b2; --grid: #30363d; --card: #161b22; } }
   * { box-sizing: border-box; }
   body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
-  header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 12px 16px; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 16px; }
   h1 { font-size: 18px; margin: 0 auto 0 0; }
   label { display: flex; gap: 6px; align-items: center; }
   select { background: var(--card); color: var(--fg); border: 1px solid var(--grid); border-radius: 6px; padding: 4px 6px; font: inherit; }
@@ -18,8 +18,12 @@
   #badge { padding: 2px 10px; border: 1px solid var(--grid); border-radius: 999px; color: var(--muted); }
   #chart { flex: 1; min-height: 0; }
   #chart p { padding: 16px; }
-  footer { padding: 8px 16px; color: var(--muted); font-size: 12px; }
+  footer { padding: 6px 16px; color: var(--muted); font-size: 12px; }
   footer a { color: inherit; }
+  @media (max-width: 699px) { /* phone: page scrolls; room for a square scene + legend under it */
+    body { height: auto; }
+    #chart { flex: none; height: calc(100vw + 360px); }
+  }
 </style>
 </head>
 <body>
@@ -47,6 +51,7 @@ const DEFAULT = { x: 'intelligence', y: 'cost', z: 'speed' };
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const $ = id => document.getElementById(id);
 let data;
+const mq = matchMedia('(max-width: 699px)'); // phone layout, same query as the CSS
 
 async function load() {
   try {
@@ -76,7 +81,7 @@ function hover(m) {
 
 function axis(k) {
   const a = AXES[k];
-  return { title: { text: a.label }, type: a.log ? 'log' : a.date ? 'date' : 'linear', gridcolor: css('--grid'), color: css('--fg') };
+  return { title: { text: mq.matches ? a.short : a.label, font: { size: 16 } }, tickfont: { size: 13 }, type: a.log ? 'log' : a.date ? 'date' : 'linear', gridcolor: css('--grid'), color: css('--fg') };
 }
 
 function draw() {
@@ -92,11 +97,15 @@ function draw() {
         marker: { size: 4 }, line: { width: 2 } };
     });
   const [xaxis, yaxis, zaxis] = sel.map(axis);
+  const phone = mq.matches, low = phone ? 0.5 : 0; // phone: scene on top half, legend below it
+  const d = phone ? 1.45 : 1.2; // phone canvas is small: camera further out, short axis titles (a closer desktop camera clips the cube at 1024x768)
   Plotly.react('chart', traces, {
-    scene: { xaxis, yaxis, zaxis },
+    scene: { xaxis, yaxis, zaxis, aspectmode: 'cube', domain: { y: [low, 1] },
+      camera: { eye: { x: d, y: d, z: d } } },
     paper_bgcolor: 'rgba(0,0,0,0)', font: { color: css('--fg') },
     margin: { l: 0, r: 0, t: 0, b: 0 },
-    legend: { orientation: innerWidth < 700 ? 'h' : 'v' },
+    // h legend wraps into columns as wide as its longest entry (1 column at 375px), so fix 2 columns
+    legend: phone ? { orientation: 'h', x: 0, y: low - 0.02, yanchor: 'top', maxheight: low - 0.04, entrywidthmode: 'fraction', entrywidth: 0.5, font: { size: 11 } } : { orientation: 'v' },
     uirevision: 'keep', // keep camera + hidden companies when axes change
   }, { responsive: true, displaylogo: false });
   $('count').textContent = `${shown.length} of ${data.models.length} models shown`;
@@ -107,6 +116,7 @@ for (const id of ['x', 'y', 'z']) {
   $(id).value = DEFAULT[id];
   $(id).onchange = draw;
 }
+mq.addEventListener('change', () => data && draw());
 load().then(d => { data = d; badge(); draw(); }).catch(() => {
   $('badge').textContent = 'No data';
   $('chart').innerHTML = '<p>Could not load model data. Please try again later.</p>';
