@@ -40,3 +40,8 @@ test('ARC failure leaves agi null', async () => {
   assert.equal(out.models.length, 1);
   assert.equal(out.models[0].agi, null);
 });
+
+test('empty AA list is an error, not an empty "live" payload', async () => {
+  globalThis.fetch = async (url) => String(url).includes('arcprize') ? json([]) : json({ data: [], pagination: { has_more: false } });
+  await assert.rejects(build('k'), /Artificial Analysis returned no models/);
+});

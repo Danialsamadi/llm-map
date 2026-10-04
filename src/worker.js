@@ -2,7 +2,7 @@ import { merge } from './merge.js';
 
 const AA = 'https://artificialanalysis.ai/api/v2/language/models/free';
 const ARC = 'https://arcprize.org/media/data/';
-// ponytail: Cache API is per data center; ~2 AA calls per DC per 6h stays under 100/day for ~12 DCs. Cron + KV if it grows.
+// ponytail: Cache API is per data center; a miss costs ~4 AA calls (~690 models / 200 per page), so ~16 calls/day per DC: the 100/day free limit is hit at ~6 DCs. Cron + KV if it grows.
 const TTL = 6 * 3600;
 
 export async function fetchAA(apiKey) {
@@ -33,6 +33,7 @@ export async function fetchARC() {
 
 export async function build(apiKey) {
   const [aa, arc] = await Promise.all([fetchAA(apiKey), fetchARC()]);
+  if (!aa.length) throw new Error('Artificial Analysis returned no models'); // 502 → page falls back to the snapshot
   return { updated: new Date().toISOString(), source: 'live', models: merge(aa, arc.models, arc.evals) };
 }
 
@@ -40,7 +41,7 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname !== '/api/models') return env.ASSETS.fetch(req);
-    const cacheKey = new Request(`${url.origin}/api/models`);
+    const cacheKey = new Request(`${url.origin}/api/models?v=2`);
     const hit = await caches.default.match(cacheKey);
     if (hit) return hit;
     try {

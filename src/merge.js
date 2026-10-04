@@ -1,7 +1,7 @@
 // Pure merge of Artificial Analysis models + ARC-AGI-2 scores. Shared by the Worker and tests.
 
 // Words that differ between sources' names for the same model.
-const NOISE = new Set(['preview', 'thinking', 'reasoning', 'non', 'high', 'low', 'medium', 'minimal', 'xhigh', 'latest', 'beta']);
+const NOISE = new Set(['preview', 'thinking', 'reasoning', 'non', 'high', 'low', 'medium', 'minimal', 'xhigh', 'none', 'latest', 'beta']);
 
 // Name → match key: words sorted (order differs between sources), numbers kept in order (GPT-5.4 ≠ GPT-4.5).
 // ponytail: heuristic name matching; add a manual alias map if important models fail to match.
@@ -19,17 +19,23 @@ export function key(name) {
   return `${words.join(' ')}|${nums.join(' ')}`;
 }
 
+// Effort level in parentheses, e.g. "(Low)"; "Non-reasoning" and "None" are the same level. No tag → null. "Qwen3 Max" has no parentheses, so it is untouched.
+const EFFORT = /\((non-reasoning|none|minimal|low|medium|high|xhigh|max)\)/i;
+const tag = name => { const t = name.match(EFFORT)?.[1].toLowerCase(); return t === 'non-reasoning' ? 'none' : t ?? null; };
+
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const pos = v => (num(v) > 0 ? v : null); // log axes need > 0; 0 means "not measured"
 
 export function merge(aa, arcModels, arcEvals) {
   const arcName = new Map(arcModels.map(m => [m.id, m.displayName]));
-  const agi = new Map();
+  const exact = new Map(), family = new Map(); // exact: key#effort → score, family: key → max over all efforts
+  const best = (map, k, v) => map.set(k, Math.max(map.get(k) ?? 0, v));
   for (const e of arcEvals) {
     const name = arcName.get(e.modelId);
     if (e.datasetId !== 'v2_Semi_Private' || !e.display || !name || num(e.score) == null) continue;
-    const k = key(name);
-    agi.set(k, Math.max(agi.get(k) ?? 0, Math.round(e.score * 1000) / 10));
+    const k = key(name), t = tag(name), v = Math.round(e.score * 1000) / 10;
+    best(family, k, v);
+    if (t) best(exact, `${k}#${t}`, v);
   }
   return aa.map(m => {
     const p = m.pricing ?? {};
@@ -42,7 +48,7 @@ export function merge(aa, arcModels, arcEvals) {
       cost: pos(m.artificial_analysis_intelligence_index_cost?.cost_per_task?.total_cost),
       price: pos(blended),
       speed: pos(m.performance?.median_output_tokens_per_second),
-      agi: agi.get(key(m.name)) ?? null,
+      agi: (t => t ? exact.get(`${key(m.name)}#${t}`) : family.get(key(m.name)))(tag(m.name)) ?? null, // a tagged model never borrows another effort's score
     };
   });
 }
