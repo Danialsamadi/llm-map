@@ -7,6 +7,42 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 // measure axes X, Y, Z -> world: X right, Z up, Y into the screen (keeps the old chart's right-handed look)
 export const toWorld = ([a, b, c]) => new THREE.Vector3(a, c, -b);
 
+const DOT_RADIUS = 0.024; // world units
+// Dots are round points whose edge coverage is computed exactly per pixel, with a little shading so they read
+// as balls. Mesh spheres relied on 4x multisampling, which left small far-away dots stair-stepped.
+const dotMaterial = maxPx => new THREE.ShaderMaterial({
+  uniforms: { uPxPerUnit: { value: 1 }, uMaxPx: { value: maxPx } },
+  transparent: true,
+  vertexShader: /* glsl */ `
+    attribute vec3 aColor;
+    attribute float aScale;
+    uniform float uPxPerUnit, uMaxPx;
+    varying vec3 vColor;
+    varying float vRadius; // device pixels
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+      vec4 front = projectionMatrix * vec4(mv.xy, mv.z + ${DOT_RADIUS} * aScale, 1.0);
+      gl_Position.z = front.z / front.w * gl_Position.w; // depth of the ball's near surface, so lines into it stay hidden
+      vRadius = min(${DOT_RADIUS} * aScale * uPxPerUnit / -mv.z, uMaxPx / 2.0 - 1.0);
+      gl_PointSize = 2.0 * vRadius + 2.0; // a pixel of room on each side for the soft edge
+      vColor = aColor;
+    }`,
+  fragmentShader: /* glsl */ `
+    varying vec3 vColor;
+    varying float vRadius;
+    void main() {
+      vec2 p = (gl_PointCoord - 0.5) * (2.0 * vRadius + 2.0); // offset from the centre, device pixels
+      float alpha = clamp(vRadius - length(p) + 0.5, 0.0, 1.0); // exact coverage of the edge pixel
+      if (alpha <= 0.0) discard;
+      vec2 q = p / vRadius;
+      vec3 n = vec3(q.x, -q.y, sqrt(max(0.0, 1.0 - dot(q, q))));
+      float shade = 0.72 + 0.28 * max(dot(n, normalize(vec3(-0.35, 0.45, 0.8))), 0.0);
+      gl_FragColor = vec4(vColor * shade, alpha);
+      #include <colorspace_fragment>
+    }`,
+});
+
 export function createScene(container, { onHover = () => {}, onClick = () => {} } = {}) {
   let renderer;
   try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch { return { ok: false }; }
@@ -21,7 +57,8 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   scene.add(frame, data, overlay);
 
   let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, grown = null, last = null, builtK = 1;
-  const subs = new Set();
+  const subs = new Set(), bufSize = new THREE.Vector2();
+  const maxPointPx = renderer.getContext().getParameter(renderer.getContext().ALIASED_POINT_SIZE_RANGE)[1];
 
   // ---------- rendering: only when asked, or every frame while someone is subscribed ----------
   function render() {
@@ -30,6 +67,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     requestAnimationFrame(t => {
       queued = false;
       for (const f of subs) f(t);
+      if (dots) dots.material.uniforms.uPxPerUnit.value = renderer.getDrawingBufferSize(bufSize).y / (2 * Math.tan((camera.fov * Math.PI) / 360));
       renderer.render(scene, camera);
       if (subs.size) render();
     });
@@ -105,9 +143,11 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     clear(data);
     dots = null;
     if (visible.length) {
-      dots = new THREE.InstancedMesh(new THREE.SphereGeometry(0.024, 14, 10), new THREE.MeshBasicMaterial(), visible.length);
-      const m = new THREE.Matrix4();
-      visible.forEach((j, i) => { dots.setMatrixAt(i, m.makeTranslation(world.get(j))); dots.setColorAt(i, new THREE.Color(colors.get(models[j].company))); });
+      const geo = new THREE.BufferGeometry(), c = new THREE.Color();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(visible.flatMap(j => world.get(j).toArray()), 3));
+      geo.setAttribute('aColor', new THREE.Float32BufferAttribute(visible.flatMap(j => c.set(colors.get(models[j].company)).toArray()), 3));
+      geo.setAttribute('aScale', new THREE.Float32BufferAttribute(new Float32Array(visible.length).fill(1), 1));
+      dots = new THREE.Points(geo, dotMaterial(maxPointPx));
       data.add(dots);
     }
     const lines = [...Map.groupBy(visible, j => models[j].company)].map(([company, js]) => {
@@ -163,14 +203,13 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   // ---------- drop preview ----------
   function preview(target) {
     if (!state) return;
-    const m = new THREE.Matrix4();
-    if (grown != null && dots) { dots.setMatrixAt(state.visible.indexOf(grown), m.makeTranslation(state.world.get(grown))); dots.instanceMatrix.needsUpdate = true; }
+    const scaleDot = (j, s) => { const a = dots.geometry.attributes.aScale; a.setX(state.visible.indexOf(j), s); a.needsUpdate = true; };
+    if (grown != null && dots) scaleDot(grown, 1);
     grown = null;
     for (const l of state.lines) l.obj.material.opacity = 0.9;
     if (ring) { overlay.remove(ring); ring.geometry.dispose(); ring.material.dispose(); ring = null; }
     if (target?.kind === 'dot' && dots) {
-      dots.setMatrixAt(state.visible.indexOf(target.index), m.compose(state.world.get(target.index), new THREE.Quaternion(), new THREE.Vector3(2.2, 2.2, 2.2)));
-      dots.instanceMatrix.needsUpdate = true;
+      scaleDot(target.index, 2.2);
       grown = target.index;
     }
     if (target?.kind === 'line') for (const l of state.lines) l.obj.material.opacity = l.company === target.company ? 1 : 0.15;
