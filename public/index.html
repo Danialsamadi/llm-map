@@ -216,6 +216,7 @@ function statusText() {
   const t = new Date(data.updated);
   if (data.mode === 'snapshot') return `Showing a saved copy from ${t.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}. Live data is unavailable right now.`;
   const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (mins < 1) return 'Live data, updated just now.';
   return `Live data, updated ${mins < 60 ? mins + (mins === 1 ? ' minute' : ' minutes') : Math.round(mins / 60) + (Math.round(mins / 60) === 1 ? ' hour' : ' hours')} ago.`;
 }
 
