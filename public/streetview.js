@@ -116,6 +116,9 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
 
   // ---------- entering and leaving ----------
   function enter(target, { duration = 1200, instant = false } = {}) {
+    if (target.kind === 'line' && !scene.lines().some(l => l.company === target.company && l.points.length > 1)) return; // stale hint or tag: the target is gone
+    if (target.kind === 'dot' && !scene.worldOf(target.index)) return;
+    document.activeElement?.blur?.(); // entering by drag leaves a sidebar control focused; fly keys must not reach it
     const kind = modeOf(target);
     if (!MODES[kind]) return;
     overview ??= { position: cam.position.clone(), target: scene.controls.target.clone(), fov: cam.fov };

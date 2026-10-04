@@ -1,6 +1,6 @@
 // Fly mode: move freely inside the cube with keys or an on-screen joystick.
 const KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight']);
-const typing = t => t instanceof HTMLElement && (t.matches('input, select, textarea') || t.isContentEditable);
+const typing = t => t instanceof HTMLElement && (t.matches('input[type=search], input[type=text], textarea') || t.isContentEditable);
 
 export const fly = {
   start(ctx, target) {
@@ -11,7 +11,7 @@ export const fly = {
     const keys = new Set(), stick = { x: 0, y: 0 };
     let vert = 0, origin = null, id = null; // id: the finger that holds the stick
     const onButton = e => e.code === 'Space' && e.target instanceof HTMLElement && e.target.matches('button:focus-visible, summary:focus-visible, a:focus-visible'); // keyboard focus on a button: Space presses it
-    const down = e => { if (KEYS.has(e.code) && !typing(e.target) && !onButton(e)) { keys.add(e.code); e.preventDefault(); } };
+    const down = e => { if (!e.metaKey && !e.ctrlKey && !e.altKey && KEYS.has(e.code) && !typing(e.target) && !onButton(e)) { keys.add(e.code); e.preventDefault(); } };
     const up = e => keys.delete(e.code), blur = () => keys.clear();
 
     // phone: joystick to move, Up / Down buttons
