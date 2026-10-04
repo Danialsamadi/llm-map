@@ -100,6 +100,34 @@
   dialog a { color: var(--signal); }
   dialog form { text-align: right; margin-top: 16px; }
 
+  /* Street View */
+  #card { z-index: 9; }
+  #figure { position: absolute; right: 16px; bottom: 16px; z-index: 4; width: 44px; height: 44px; padding: 6px; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); cursor: grab; touch-action: none; transition: translate .25s ease; }
+  #figure.dragging { cursor: grabbing; transition: none; z-index: 8; box-shadow: 0 6px 18px rgb(0 0 0 / .25); }
+  #figure svg { display: block; width: 100%; height: 100%; }
+  #svMenu, #svHint { position: absolute; right: 16px; bottom: 70px; z-index: 6; display: flex; flex-direction: column; gap: 6px; max-width: min(300px, calc(100% - 32px)); padding: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+  #svMenu p { margin: 0 0 4px; color: var(--slate); font-size: 13px; }
+  #svHint { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  #svHint span { width: 100%; }
+  #svMenu button, #svHint button, #svBar button, #svControls button { padding: 6px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); cursor: pointer; text-align: left; }
+  #dropLabel { position: absolute; z-index: 7; pointer-events: none; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: var(--panel); font-size: 13px; font-weight: 600; white-space: nowrap; transform: translate(-50%, -64px); }
+  #tags { position: absolute; inset: 0; z-index: 3; overflow: hidden; pointer-events: none; }
+  .tag { position: absolute; left: 0; top: 0; pointer-events: auto; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel); color: var(--ink); font: 600 12px/1.4 var(--font); white-space: nowrap; cursor: pointer; }
+  #svBar { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 5; display: flex; gap: 12px; align-items: center; pointer-events: none; }
+  #svBar > * { pointer-events: auto; }
+  #svBack { flex: none; white-space: nowrap; }
+  #svTitle { padding: 6px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); font-weight: 600; }
+  #svPanel { position: absolute; top: 64px; right: 12px; z-index: 5; width: 270px; max-height: calc(100% - 200px); overflow: auto; padding: 12px 14px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+  #svPanel h3 { margin: 0 0 6px; font-size: 15px; }
+  #svPanel ol { margin: 0; padding-left: 20px; }
+  #svPanel button { display: flex; flex-direction: column; align-items: flex-start; padding: 5px 0; border: 0; background: none; cursor: pointer; text-align: left; }
+  #svPanel button span { color: var(--slate); font-size: 13px; }
+  #svGuide { position: absolute; right: 16px; bottom: 16px; z-index: 4; width: 130px; height: 130px; overflow: visible; pointer-events: none; }
+  #svGuide line { stroke: var(--ink); stroke-width: 2; }
+  #svGuide circle { fill: var(--ink); }
+  #svGuide text { fill: var(--ink); font: 600 11px var(--font); text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: var(--ground); stroke-width: 3px; }
+  #svControls { position: absolute; left: 16px; bottom: 16px; z-index: 5; }
+
   /* Phone: chart on top, one tab of controls below */
   @media (max-width: 699px) {
     .app { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto 34dvh; grid-template-areas: "brand" "stage" "tabs" "pane"; }
@@ -118,6 +146,9 @@
     .q-more, .measures { margin-top: 4px; }
     #status { display: none; }
     #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 55dvh; border-radius: 12px 12px 0 0; z-index: 10; }
+    #svPanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 12px 12px 0 0; }
+    #svGuide { top: 60px; right: 8px; bottom: auto; width: 100px; height: 100px; }
+    #svTitle { font-size: 13px; }
   }
 </style>
 </head>
@@ -151,7 +182,23 @@
   </aside>
   <main id="stage">
     <div id="chart" role="img" aria-label="3D chart of language models"></div>
+    <div id="tags"></div>
     <div id="tip" hidden></div>
+    <div id="svBar" hidden><button id="svBack">Back to overview</button><span id="svTitle"></span></div>
+    <aside id="svPanel" hidden aria-label="Nearby models"></aside>
+    <svg id="svGuide" hidden aria-hidden="true"></svg>
+    <div id="svControls"></div>
+    <button id="figure" title="Street View" aria-label="Street View: drag the figure into the chart, or press to choose where to go">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="5" fill="#f5c518" stroke="#1d2733" stroke-width="1.5"/><path d="M9 14h14l-2 8h-3l-1 8h-2l-1-8h-3z" fill="#f5c518" stroke="#1d2733" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </button>
+    <div id="svMenu" hidden>
+      <p>Step into the chart</p>
+      <button data-mode="stand">Stand at a model</button>
+      <button data-mode="ride" hidden>Ride a company's line</button>
+      <button data-mode="fly" hidden>Fly around</button>
+    </div>
+    <div id="svHint" hidden></div>
+    <div id="dropLabel" hidden></div>
     <div id="empty" hidden></div>
     <article id="card" hidden aria-live="polite"></article>
   </main>

@@ -1,6 +1,7 @@
 // Page logic: data, questions, companies, details card, About dialog and the link. The 3D view is scene.js.
 import { createScene } from './scene.js';
 import { readSV, writeSV, FLY_START } from './space.js';
+import { createStreetView } from './streetview.js';
 
 const MEASURES = {
   intelligence: { name: 'Smartness', axis: 'Smartness (AA index)', better: 'higher is better', about: 'Artificial Analysis Intelligence Index: one score from tests of reasoning, coding and knowledge.', fmt: v => v.toFixed(1) },
@@ -38,6 +39,8 @@ const scene = createScene($('chart'), {
   onClick: (i, e) => { if (sv?.handleTap(i, e)) return; if (i != null) showCard(i); },
 });
 window.llmMap = { scene, get sv() { return sv; } }; // handle for console debugging and browser checks
+if (scene.ok) sv = createStreetView({ scene, getState: () => ({ models: data.models, axes }), showCard, onChange: () => data && writeLink() });
+else $('figure').hidden = true;
 
 async function load() {
   try {
@@ -247,7 +250,7 @@ for (const t of ['ask', 'cos']) $('tab-' + t).onclick = () => {
 };
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('card').hidden && !$('about').open) { hideCard(); e.preventDefault(); } // preventDefault: Street View won't also exit
-});
+}, true); // capture: runs before Street View's own Escape handler, which was registered earlier
 mq.addEventListener('change', () => data && draw());
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => data && draw()); // colours come from CSS variables
 document.fonts?.ready.then(() => data && draw()); // redraw labels once the web font is in
