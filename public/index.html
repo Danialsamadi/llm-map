@@ -127,7 +127,7 @@
   #svGuide circle { fill: var(--ink); }
   #svGuide text { fill: var(--ink); font: 600 11px var(--font); text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: var(--ground); stroke-width: 3px; }
   #svControls { position: absolute; left: 16px; bottom: 16px; z-index: 5; }
-  #svControls { right: 162px; } /* stay clear of the direction guide (bottom right) */
+  #svControls { max-width: calc(100% - 178px); } /* stay clear of the direction guide (bottom right); a cap, not a right edge, so empty space never covers the chart */
   .ride { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: min(440px, calc(100vw - 32px)); padding: 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
   .ride input[type=range] { flex: 1 1 160px; }
   .rate { min-width: 2.5em; text-align: center; color: var(--slate); }
@@ -158,7 +158,7 @@
     #status { display: none; }
     #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 55dvh; border-radius: 12px 12px 0 0; z-index: 10; }
     #svPanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 12px 12px 0 0; }
-    #svControls { right: 16px; }
+    #svControls { max-width: calc(100% - 32px); }
     #svGuide { top: 84px; right: 8px; bottom: auto; width: 100px; height: 100px; } /* clears a three-line "Now passing" title */
     #svTitle { font-size: 13px; }
   }
