@@ -20,7 +20,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   const frame = new THREE.Group(), data = new THREE.Group(), overlay = new THREE.Group();
   scene.add(frame, data, overlay);
 
-  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, grown = null;
+  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, grown = null, last = null, builtK = 1;
   const subs = new Set();
 
   // ---------- rendering: only when asked, or every frame while someone is subscribed ----------
@@ -41,6 +41,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     if (!w || !h) return;
     renderer.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
+    if (last && Math.abs(labelScale() / builtK - 1) > 0.05) buildFrame(last.scales, last.titles); // small canvas: labels grew or shrank
     if (!placed) { // first size known: frame the whole cube, further out on tall narrow canvases
       placed = true;
       camera.position.set(1, 0.75, -1).normalize().multiplyScalar(5 * Math.max(1, Math.min(2.2, h / w)));
@@ -73,9 +74,14 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     return s;
   }
 
+  // labels grow on small canvases (phones) so they stay readable: 1x from 620 px up to 2x
+  const labelScale = () => Math.min(2, Math.max(1, 620 / Math.min(container.clientWidth, container.clientHeight)));
+
   // cube edges, grid on the floor and the two back walls (x = -1, z = +1), tick labels, axis titles
   function buildFrame(scales, titles) {
     clear(frame);
+    const k = labelScale(), e = k - 1; // e: extra room that bigger labels need
+    last = { scales, titles }; builtK = k;
     const rule = css('--rule'), ink = css('--ink'), slate = css('--slate'), V = (x, y, z) => new THREE.Vector3(x, y, z);
     frame.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)), new THREE.LineBasicMaterial({ color: rule })));
     const [tx, ty, tz] = scales.map(s => ticks(s)), grid = [];
@@ -83,13 +89,13 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     for (const t of ty) { const z = -t.cube; grid.push(V(-1, -1, z), V(1, -1, z), V(-1, -1, z), V(-1, 1, z)); }
     for (const t of tz) grid.push(V(-1, t.cube, -1), V(-1, t.cube, 1), V(-1, t.cube, 1), V(1, t.cube, 1));
     frame.add(segments(grid, rule, 0.7));
-    const tick = 0.09, title = 0.11;
-    for (const t of tx) frame.add(at(textSprite(t.label, tick, slate), t.cube, -1, -1.14));
-    for (const t of ty) frame.add(at(textSprite(t.label, tick, slate), 1.14, -1, -t.cube));
-    for (const t of tz) frame.add(at(textSprite(t.label, tick, slate), -1.12, t.cube, -1.06));
-    frame.add(at(textSprite(titles[0], title, ink, 600), 0, -1.12, -1.45));
-    frame.add(at(textSprite(titles[1], title, ink, 600), 1.45, -1.12, 0));
-    frame.add(at(textSprite(titles[2], title, ink, 600), -1.0, 1.2, -1.0));
+    const tick = 0.09 * k, title = 0.11 * k;
+    for (const t of tx) frame.add(at(textSprite(t.label, tick, slate), t.cube, -1 - 0.05 * e, -1.14));
+    for (const t of ty) frame.add(at(textSprite(t.label, tick, slate), 1.14, -1 - 0.1 * e, -t.cube));
+    for (const t of tz) frame.add(at(textSprite(t.label, tick, slate), -1.12 - 0.05 * e, t.cube, -1.06 - 0.05 * e));
+    frame.add(at(textSprite(titles[0], title, ink, 600), 0, -1.12, -1.45 - 0.3 * e));
+    frame.add(at(textSprite(titles[1], title, ink, 600), 1.45 + 0.3 * e, -1.12, 0));
+    frame.add(at(textSprite(titles[2], title, ink, 600), -1.0 + 0.3 * e, 1.2 + 0.4 * e, -1.0 + 0.3 * e));
   }
 
   // ---------- data ----------
