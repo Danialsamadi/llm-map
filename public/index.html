@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>LLM 3D Map</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/4.1.2/plotly.min.js"></script>
 <style>
@@ -96,7 +97,7 @@ function hover(m) {
 
 function axis(k) {
   const a = AXES[k];
-  return { title: { text: mq.matches ? a.short : a.label, font: { size: 16 } }, tickfont: { size: 13 }, type: a.log ? 'log' : a.date ? 'date' : 'linear', gridcolor: css('--grid'), color: css('--fg') };
+  return { title: { text: mq.matches ? a.short : a.label, font: { size: 16 } }, tickfont: { size: 13 }, type: a.log ? 'log' : a.date ? 'date' : 'linear', ...(a.log && { dtick: 1 }), gridcolor: css('--grid'), color: css('--fg') };
 }
 
 // the view as the user left it (rotate, wheel, pinch), so redraws keep it; remembered because the scene is gone while no company is shown
@@ -123,7 +124,7 @@ function draw() {
     paper_bgcolor: 'rgba(0,0,0,0)', font: { color: css('--fg') },
     margin: { l: 0, r: 0, t: 0, b: 0 },
     showlegend: false,
-    uirevision: 'keep', // keep camera when axes or companies change
+    uirevision: 'keep', // persistence comes from re-passing the live camera above, not from uirevision
   }, { responsive: true, displaylogo: false });
   $('count').textContent = `${shown.length} of ${data.models.length} models shown`;
 }
@@ -140,7 +141,7 @@ function change() {
 
 function init() {
   const by = Map.groupBy(data.models, m => m.company);
-  names = [...by.keys()].sort((a, b) => by.get(b).length - by.get(a).length);
+  names = [...by.keys()].sort((a, b) => by.get(b).length - by.get(a).length || a.localeCompare(b)); // name breaks ties so colours match between live and snapshot
   color = new Map(names.map((c, i) => [c, PALETTE[i % PALETTE.length]]));
   for (const co of names) { // textContent only: company names come from the API
     const label = document.createElement('label'), cb = document.createElement('input'), sw = document.createElement('span'), n = document.createElement('span');
