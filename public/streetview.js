@@ -139,11 +139,10 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
 
   function exit({ instant = false } = {}) {
     if (!mode) return;
-    const back = overview;
-    overview = null;
+    const back = overview; // kept until the glide ends, so entering again mid-glide still returns to the true overview
     teardown();
     scene.animateCamera({ position: back.position, look: back.target, fov: back.fov, duration: instant ? 0 : ms(1200),
-      done: () => { scene.controls.target.copy(back.target); scene.controls.update(); scene.setOrbit(true); scene.render(); } });
+      done: () => { overview = null; scene.controls.target.copy(back.target); scene.controls.update(); scene.setOrbit(true); scene.render(); } });
     onChange();
   }
   $('svBack').onclick = () => exit();
