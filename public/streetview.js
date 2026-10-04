@@ -1,6 +1,7 @@
 // Street View: drag the figure into the chart to stand at a model, ride a company's line or fly around.
 import * as THREE from 'three';
 import { BETTER, betterSign, FLY_START } from './space.js';
+import { spring, tracker } from './spring.js';
 import { stand } from './modes/stand.js';
 import { fly } from './modes/fly.js';
 import { ride } from './modes/ride.js';
@@ -49,11 +50,19 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
   // ---------- the figure: drag to drop, press to choose ----------
   const describe = t => (!t ? '' : t.kind === 'dot' ? `Stand at ${getState().models[t.index].name}` : t.kind === 'line' ? `Ride ${t.company}'s line` : 'Fly from here');
   const usable = t => (t && MODES[modeOf(t)] ? t : null);
-  let drag = null;
+  let drag = null, home = null, off = [0, 0]; // home: springs flying the figure back; off: its current offset
+  const place = () => { fig.style.translate = off[0] || off[1] ? `${off[0]}px ${off[1]}px` : ''; };
+  function flyHome(vx, vy) { // dropped on nothing: spring back to its slot, keeping the release velocity
+    if (reduced.matches) { off = [0, 0]; return place(); }
+    home = [0, 1].map(i => spring({ from: off[i], to: 0, velocity: i ? vy : vx, damping: 0.8, response: 0.35,
+      onUpdate: v => { off[i] = v; place(); } }));
+  }
   function dragMove(e) {
-    if (!drag || (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6)) return;
+    if (!drag || e.pointerId !== drag.id || (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6)) return;
     if (!drag.moved) { drag.moved = true; fig.classList.add('dragging'); toggleMenu(false); clearHint(); }
-    fig.style.translate = `${e.clientX - drag.x}px ${e.clientY - drag.y}px`;
+    off = [e.clientX - drag.x, e.clientY - drag.y]; // 1:1 with the finger, from wherever it was grabbed
+    place();
+    drag.vx.add(off[0], e.timeStamp); drag.vy.add(off[1], e.timeStamp);
     drag.target = usable(scene.pick(e.clientX, e.clientY));
     scene.preview(drag.target);
     const r = stage.getBoundingClientRect(), lab = $('dropLabel');
@@ -63,20 +72,24 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
     lab.style.top = e.clientY - r.top + 'px';
   }
   function dragEnd(e) {
+    if (!drag || e.pointerId !== drag.id) return;
     removeEventListener('pointermove', dragMove);
     removeEventListener('pointerup', dragEnd);
     removeEventListener('pointercancel', dragEnd);
-    const { moved, target } = drag;
+    const { moved, target, vx, vy } = drag;
     drag = null;
-    fig.classList.remove('dragging'); fig.style.translate = ''; $('dropLabel').hidden = true; scene.preview(null);
-    if (e.type === 'pointercancel') return;
-    if (!moved) toggleMenu();
-    else if (target) enter(target);
+    vx.add(off[0], e.timeStamp); vy.add(off[1], e.timeStamp); // a finger that stopped before lifting has no momentum
+    fig.classList.remove('dragging'); $('dropLabel').hidden = true; scene.preview(null);
+    if (moved && target && e.type !== 'pointercancel') { off = [0, 0]; place(); return enter(target); }
+    if (moved || off[0] || off[1]) return flyHome(vx.velocity(), vy.velocity());
+    if (e.type !== 'pointercancel') toggleMenu();
   }
   fig.addEventListener('pointerdown', e => {
     if (mode || e.button > 0) return;
     e.preventDefault();
-    drag = { x: e.clientX, y: e.clientY, moved: false, target: null };
+    home?.forEach(s => s.stop()); home = null; // caught mid-flight: carry on from where it is
+    try { fig.setPointerCapture(e.pointerId); } catch {} // best effort: keep tracking even off the button
+    drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x: e.clientX - off[0], y: e.clientY - off[1], moved: false, target: null, vx: tracker(), vy: tracker() };
     addEventListener('pointermove', dragMove);
     addEventListener('pointerup', dragEnd);
     addEventListener('pointercancel', dragEnd);

@@ -2,224 +2,277 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>LLM map</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap" rel="stylesheet">
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }</script>
 <style>
+  /* The chart is the page; controls float over it on glass. Colour belongs to the data (companies, axes),
+     so the chrome stays neutral. */
   :root {
-    --ground: #eef1f4; --panel: #ffffff; --ink: #1d2733; --slate: #5b6875; --rule: #d5dbe1;
-    --signal: #2a4bd7; --signal-soft: #e3e8fb;
+    --ground: #f2f2f7; --panel: #ffffff; --ink: #1d1d1f; --slate: #6e6e73; --rule: #d1d1d6;
+    --fill: rgb(120 120 128 / .12); --fill-strong: rgb(120 120 128 / .2); --hair: rgb(0 0 0 / .08);
+    --glass: rgb(255 255 255 / .74); --glass-thin: rgb(255 255 255 / .6);
+    --shadow: 0 12px 36px rgb(0 0 0 / .12), 0 1px 3px rgb(0 0 0 / .06);
+    --signal: #0071e3; --signal-soft: #e8f1fd;
     --ax-0: #2f6fde; --ax-1: #d98a00; --ax-2: #b8409a; /* X, Y, Z axis colours */
     --ax-1-text: #b87400; /* amber text needs more contrast on the light background */
-    --font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+    --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --rail: 324px; /* room the desktop sidebar takes on the left: 12 + 300 + 12 */
   }
   @media (prefers-color-scheme: dark) {
-    :root { --ground: #1a212b; --panel: #222b37; --ink: #e8edf2; --slate: #9aa7b5; --rule: #344050; --signal: #8a9dff; --signal-soft: #2b3554; --ax-0: #6f9bff; --ax-1: #f0a830; --ax-2: #e06cc4; --ax-1-text: #f0a830; }
+    :root {
+      --ground: #000; --panel: #1c1c1e; --ink: #f5f5f7; --slate: #a1a1a6; --rule: #38383a;
+      --fill: rgb(120 120 128 / .24); --fill-strong: rgb(120 120 128 / .36); --hair: rgb(255 255 255 / .1);
+      --glass: rgb(30 30 32 / .72); --glass-thin: rgb(44 44 46 / .6);
+      --shadow: 0 12px 36px rgb(0 0 0 / .55);
+      --signal: #2997ff; --signal-soft: #10243d;
+      --ax-0: #6f9bff; --ax-1: #f0a830; --ax-2: #e06cc4; --ax-1-text: #f0a830;
+    }
   }
+  @media (prefers-reduced-transparency: reduce) { :root { --glass: var(--panel); --glass-thin: var(--panel); } }
+  @media (prefers-contrast: more) { :root { --hair: var(--ink); --slate: var(--ink); --fill: rgb(120 120 128 / .3); } }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
-  body { height: 100dvh; overflow: hidden; background: var(--ground); color: var(--ink); font: 15px/1.5 var(--font); }
-  button, input, select { font: inherit; color: inherit; }
-  :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  body { overflow: hidden; background: var(--ground); color: var(--ink); font: 15px/1.47 var(--font); letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; }
+  button, input, select { font: inherit; color: inherit; letter-spacing: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 3px solid color-mix(in srgb, var(--signal) 55%, transparent); outline-offset: 2px; }
   [hidden] { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
 
-  /* Desktop: questions + companies on the left, chart fills the rest */
-  .app { display: grid; grid-template-columns: 320px 1fr; height: 100%; }
-  #rail { display: flex; flex-direction: column; gap: 28px; padding: 20px 24px; overflow: auto; background: var(--panel); border-right: 1px solid var(--rule); }
-  .brand { display: flex; align-items: baseline; justify-content: space-between; }
-  h1 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-  h2 { font-size: 13px; font-weight: 600; color: var(--slate); margin: 0 0 10px; }
-  .link { background: none; border: 0; padding: 2px 0; color: var(--signal); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-  .tabs { display: none; }
+  /* Materials: thick for structure (sidebar, sheets), thin for small floating things */
+  .glass, .glass-thin { -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
+  .glass { background: var(--glass); box-shadow: var(--shadow), inset 0 0 0 .5px var(--hair); }
+  .glass-thin { background: var(--glass-thin); box-shadow: 0 2px 10px rgb(0 0 0 / .08), inset 0 0 0 .5px var(--hair); }
+  @media (prefers-reduced-transparency: reduce) { .glass, .glass-thin { -webkit-backdrop-filter: none; backdrop-filter: none; } }
+  @media (prefers-contrast: more) { .glass, .glass-thin { box-shadow: inset 0 0 0 1px var(--ink); } }
 
-  /* The question list is the one loud thing on the page */
-  #questions { display: flex; flex-direction: column; }
-  .q { display: block; position: relative; padding: 10px 0 10px 16px; cursor: pointer; border-left: 3px solid transparent; }
-  .q input { position: absolute; opacity: 0; pointer-events: none; }
-  .q-title { display: block; font-size: 21px; line-height: 1.2; font-weight: 600; color: var(--slate); }
-  .q:hover .q-title { color: var(--ink); }
-  .q:has(input:checked) { border-left-color: var(--signal); }
-  .q:has(input:checked) .q-title { color: var(--ink); font-weight: 700; }
-  .q:has(input:focus-visible) { outline: 2px solid var(--signal); outline-offset: 2px; }
-  .q-more { display: none; margin-top: 8px; color: var(--slate); max-width: 34ch; }
-  .q:has(input:checked) .q-more { display: block; }
-  .measures { list-style: none; margin: 10px 0 0; padding: 0; color: var(--ink); }
-  .measures li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
-  .measures span:last-child { color: var(--slate); font-size: 13px; }
-  .ax-mark { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 2px; vertical-align: 0; }
-  .ax-mark-0 { background: var(--ax-0); } .ax-mark-1 { background: var(--ax-1); } .ax-mark-2 { background: var(--ax-2); }
-  .ax-text-0 { color: var(--ax-0); } .ax-text-1 { color: var(--ax-1-text); } .ax-text-2 { color: var(--ax-2); }
-  #custom { display: grid; gap: 8px; margin-top: 10px; }
-  #custom label { display: grid; grid-template-columns: 52px 1fr; align-items: center; color: var(--slate); font-size: 13px; }
-  select { width: 100%; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }
+  /* Feedback on press, not on release */
+  button, .q, .co { transition: transform .1s ease-out, background-color .15s ease; }
+  button:active, .q:active, .co:active { transform: scale(.97); }
 
-  #count { margin: -4px 0 12px; color: var(--slate); font-size: 13px; }
-  #chips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-  #chips li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); }
-  #chips .n { margin-left: auto; color: var(--slate); font-size: 13px; }
-  #chips button { border: 0; background: none; color: var(--slate); cursor: pointer; padding: 0 2px; font-size: 18px; line-height: 1; }
-  #chips button:hover { color: var(--ink); }
-  .dot { flex: none; width: 11px; height: 11px; border-radius: 50%; }
-  #add { margin-top: 12px; }
-  #add summary { list-style: none; cursor: pointer; color: var(--signal); font-weight: 600; }
-  #add summary::-webkit-details-marker { display: none; }
-  #add[open] summary { margin-bottom: 8px; }
-  #q { width: 100%; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }
-  #list { max-height: 40vh; overflow: auto; margin: 8px 0; }
-  #list label { display: flex; align-items: center; gap: 10px; padding: 4px 0; cursor: pointer; }
-  #list .n { margin-left: auto; color: var(--slate); font-size: 13px; }
-  .row { display: flex; gap: 16px; }
-  #status { margin: auto 0 0; color: var(--slate); font-size: 13px; }
-
-  #stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  #stage { position: fixed; inset: 0; overflow: hidden; }
   #chart { position: absolute; inset: 0; touch-action: none; }
   #chart canvas { display: block; }
-  #tip { position: absolute; z-index: 5; pointer-events: none; display: flex; flex-direction: column; max-width: 240px; padding: 6px 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; font-size: 13px; }
-  #tip span { color: var(--slate); }
-  #empty { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 24px; margin: 0; color: var(--slate); pointer-events: none; }
-  #empty p { margin: 0 0 10px; max-width: 36ch; }
+
+  /* ---------- sidebar (desktop) / bottom sheet (phone) ---------- */
+  #rail { position: fixed; z-index: 4; top: 12px; left: 12px; bottom: 12px; width: 300px; border-radius: 18px; display: flex; flex-direction: column; overflow: hidden; }
+  .grip { display: none; }
+  .body { flex: 1; min-height: 0; overflow: auto; padding: 18px 14px 16px; display: flex; flex-direction: column; gap: 22px; overscroll-behavior: contain; }
+  .brand { padding: 0 6px; }
+  h1 { margin: 0; font-size: 22px; line-height: 1.15; font-weight: 700; letter-spacing: -0.022em; }
+  .status { margin: 4px 0 0; color: var(--slate); font-size: 12px; line-height: 1.35; letter-spacing: 0; }
+  h2 { margin: 0 6px 6px; font-size: 13px; font-weight: 600; color: var(--slate); letter-spacing: -0.005em; }
+
+  /* questions: a sidebar list, the selected one in a soft pill with its measures underneath */
+  #questions { display: flex; flex-direction: column; gap: 2px; }
+  .q { display: block; position: relative; padding: 9px 12px 10px; border-radius: 12px; cursor: pointer; }
+  .q:hover { background: var(--fill); }
+  .q:has(input:checked) { background: var(--fill-strong); }
+  .q:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--signal) 55%, transparent); }
+  .q input { position: absolute; opacity: 0; pointer-events: none; }
+  .q-title { display: block; font-size: 17px; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; }
+  .q-more { display: none; margin-top: 4px; color: var(--slate); font-size: 13px; line-height: 1.38; letter-spacing: -0.005em; }
+  .q:has(input:checked) .q-more { display: block; }
+  .measures { list-style: none; margin: 8px 0 0; padding: 0; color: var(--ink); }
+  .measures li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 2px 0; }
+  .measures span:last-child { color: var(--slate); font-size: 12px; letter-spacing: 0; }
+  .ax-mark { display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; }
+  .ax-mark-0 { background: var(--ax-0); } .ax-mark-1 { background: var(--ax-1); } .ax-mark-2 { background: var(--ax-2); }
+  .ax-text-0 { color: var(--ax-0); } .ax-text-1 { color: var(--ax-1-text); } .ax-text-2 { color: var(--ax-2); }
+  #custom { display: grid; gap: 6px; margin-top: 10px; }
+  #custom label { display: grid; grid-template-columns: 50px 1fr; align-items: center; font-size: 13px; font-weight: 600; }
+  select { width: 100%; padding: 6px 10px; border: 0; border-radius: 8px; background: var(--fill); }
+
+  /* companies: a checklist, plus a segmented control for the common picks */
+  .cos-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 6px 8px; }
+  .cos-head h2 { margin: 0; }
+  #count { color: var(--slate); font-size: 12px; letter-spacing: 0; }
+  .seg { display: flex; gap: 2px; padding: 2px; margin: 0 2px 8px; border-radius: 9px; background: var(--fill); }
+  .seg button { flex: 1; padding: 4px 0; border: 0; border-radius: 7px; background: none; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--panel); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / .12), 0 0 0 .5px var(--hair); }
+  #q { width: calc(100% - 4px); margin: 0 2px 6px; padding: 7px 10px; border: 0; border-radius: 9px; background: var(--fill); }
+  #q::placeholder { color: var(--slate); }
+  .co { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
+  .co:hover { background: var(--fill); }
+  .co:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--signal) 55%, transparent); }
+  .co .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .co .note { display: block; color: var(--slate); font-size: 12px; letter-spacing: 0; }
+  .co .n { color: var(--slate); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .co .check { width: 16px; height: 16px; color: var(--ink); opacity: 0; transition: opacity .15s; }
+  .co:has(input:checked) .check { opacity: 1; }
+  .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ---------- right-hand control stack, like Maps ---------- */
+  #ctrls { position: fixed; z-index: 6; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 2px; padding: 4px; border-radius: 14px; }
+  #ctrls button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; background: none; color: var(--ink); cursor: pointer; }
+  #ctrls button:hover { background: var(--fill); }
+  #ctrls svg { width: 22px; height: 22px; }
+  #figure { cursor: grab; touch-action: none; }
+  #figure svg { width: 28px; height: 28px; }
+  #figure.dragging { cursor: grabbing; transform: scale(1.18); transition: transform .12s ease-out; background: var(--glass); box-shadow: var(--shadow); }
+  body.sv-on #ctrls { display: none; }
+
+  #tip { position: absolute; z-index: 5; pointer-events: none; display: flex; flex-direction: column; max-width: 240px; padding: 6px 10px; border-radius: 10px; font-size: 13px; line-height: 1.3; }
+  #tip strong { font-weight: 600; }
+  #tip span { color: var(--slate); font-size: 12px; }
+  #empty { position: absolute; inset: 0 0 0 var(--rail); display: grid; place-content: center; text-align: center; padding: 24px; color: var(--slate); pointer-events: none; }
+  #empty p { margin: 0 0 12px; max-width: 34ch; }
   #empty button { pointer-events: auto; }
-  .btn { border: 1px solid var(--signal); background: var(--signal); color: #fff; border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+  .btn { border: 0; border-radius: 999px; padding: 8px 18px; background: var(--signal); color: #fff; font-weight: 600; cursor: pointer; }
 
-  /* Model details: appears when a dot is clicked */
-  #card { position: absolute; right: 20px; bottom: 20px; width: 300px; max-height: calc(100% - 40px); overflow: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; }
-  #card h3 { font-size: 19px; line-height: 1.25; margin: 0 28px 4px 0; }
-  #card .who { display: flex; align-items: center; gap: 8px; color: var(--slate); margin: 0 0 12px; }
-  #card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+  /* ---------- model details: a popover that grows out of the dot (desktop), a sheet (phone) ---------- */
+  #card { position: absolute; z-index: 9; width: 300px; max-height: calc(100% - 24px); overflow: auto; padding: 16px 16px 12px; border-radius: 16px; }
+  #card .grabber { display: none; }
+  #card h3 { margin: 0 34px 2px 0; font-size: 19px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; }
+  #card .who { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--slate); font-size: 13px; }
+  #card dl { margin: 0; }
+  #card .row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: .5px solid var(--rule); }
   #card dt { color: var(--slate); }
-  #card dd { margin: 0; text-align: right; font-weight: 600; }
-  #card dd small { display: block; font-weight: 400; color: var(--slate); font-size: 12px; }
+  #card dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #card dd small { display: block; font-weight: 400; color: var(--slate); font-size: 12px; letter-spacing: 0; }
   #card dd.none { font-weight: 400; color: var(--slate); }
-  #close { position: absolute; top: 10px; right: 10px; border: 0; background: none; color: var(--slate); font-size: 22px; line-height: 1; cursor: pointer; }
+  #close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fill); color: var(--slate); cursor: pointer; }
+  #close svg { width: 12px; height: 12px; }
 
-  dialog { max-width: min(560px, calc(100vw - 32px)); border: 1px solid var(--rule); border-radius: 12px; padding: 24px; background: var(--panel); color: var(--ink); }
-  dialog::backdrop { background: rgb(20 28 38 / 0.45); }
-  dialog h2 { font-size: 15px; color: var(--ink); margin: 20px 0 6px; }
-  dialog h2:first-of-type { margin-top: 0; }
+  dialog { max-width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); border: 0; border-radius: 20px; padding: 26px 28px 22px; background: var(--panel); color: var(--ink); box-shadow: 0 24px 80px rgb(0 0 0 / .3); }
+  dialog::backdrop { background: rgb(0 0 0 / .32); }
+  dialog[open] { animation: arrive .28s cubic-bezier(.2, .9, .25, 1); }
+  dialog h2 { font-size: 17px; font-weight: 700; color: var(--ink); margin: 20px 0 6px; letter-spacing: -0.02em; }
+  dialog h2:first-of-type { margin-top: 0; font-size: 22px; letter-spacing: -0.022em; }
   dialog p, dialog ul { margin: 0 0 8px; color: var(--slate); }
   dialog ul { padding-left: 18px; }
+  dialog li { margin: 3px 0; }
+  dialog strong { color: var(--ink); font-weight: 600; }
   dialog a { color: var(--signal); }
-  dialog form { text-align: right; margin-top: 16px; }
+  dialog form { text-align: right; margin-top: 18px; }
+  @keyframes arrive { from { opacity: 0; transform: scale(.94); filter: blur(6px); } }
+  @media (prefers-reduced-motion: reduce) { dialog[open] { animation: fade .2s ease; } @keyframes fade { from { opacity: 0; } } }
 
-  /* Street View */
-  #card { z-index: 9; }
-  #figure { position: absolute; right: 16px; bottom: 16px; z-index: 4; width: 44px; height: 44px; padding: 6px; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); cursor: grab; touch-action: none; transition: translate .25s ease; }
-  #figure.dragging { cursor: grabbing; transition: none; z-index: 8; box-shadow: 0 6px 18px rgb(0 0 0 / .25); }
-  #figure svg { display: block; width: 100%; height: 100%; }
-  #svMenu, #svHint { position: absolute; right: 16px; bottom: 70px; z-index: 6; display: flex; flex-direction: column; gap: 6px; max-width: min(300px, calc(100% - 32px)); padding: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
-  #svMenu p { margin: 0 0 4px; color: var(--slate); font-size: 13px; }
+  /* ---------- Street View ---------- */
+  #svMenu, #svHint { position: fixed; right: 12px; top: 156px; z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(300px, calc(100% - 24px)); padding: 8px; border-radius: 14px; transform-origin: top right; animation: arrive .24s cubic-bezier(.2, .9, .25, 1); }
+  #svMenu p { margin: 2px 8px 4px; color: var(--slate); font-size: 13px; font-weight: 600; }
+  #svMenu button { padding: 9px 12px; border: 0; border-radius: 9px; background: none; text-align: left; cursor: pointer; }
+  #svMenu button:hover { background: var(--fill); }
   #svHint { flex-direction: row; flex-wrap: wrap; align-items: center; }
-  #svHint span { width: 100%; }
-  #svMenu button, #svHint button, #svBar button, #svControls button { padding: 6px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); cursor: pointer; text-align: left; }
-  #dropLabel { position: absolute; z-index: 7; pointer-events: none; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: var(--panel); font-size: 13px; font-weight: 600; white-space: nowrap; transform: translate(-50%, -64px); }
+  #svHint span { width: 100%; margin: 2px 6px 4px; font-weight: 600; }
+  #svHint button, #svBar button, #svControls button { padding: 7px 12px; border: 0; border-radius: 9px; background: var(--fill); cursor: pointer; }
+  #dropLabel { position: absolute; z-index: 7; pointer-events: none; padding: 5px 12px; border-radius: 999px; background: var(--ink); color: var(--panel); font-size: 13px; font-weight: 600; white-space: nowrap; transform: translate(-50%, -64px); }
   #tags { position: absolute; inset: 0; z-index: 3; overflow: hidden; pointer-events: none; }
-  .tag { position: absolute; left: 0; top: 0; pointer-events: auto; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel); color: var(--ink); font: 600 12px/1.4 var(--font); white-space: nowrap; cursor: pointer; }
-  #svBar { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 5; display: flex; gap: 12px; align-items: center; pointer-events: none; }
+  .tag { position: absolute; left: 0; top: 0; pointer-events: auto; padding: 3px 10px; border: 0; border-radius: 999px; color: var(--ink); font: 600 12px/1.4 var(--font); white-space: nowrap; cursor: pointer; }
+  #svBar { position: absolute; top: 12px; left: calc(var(--rail) + 0px); right: 312px; z-index: 5; display: flex; gap: 8px; align-items: center; pointer-events: none; }
   #svBar > * { pointer-events: auto; }
-  #svBack { flex: none; white-space: nowrap; }
-  #svTitle { padding: 6px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); font-weight: 600; }
-  #svPanel { position: absolute; top: 64px; right: 12px; z-index: 5; width: 270px; max-height: calc(100% - 200px); overflow: auto; padding: 12px 14px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
-  #svPanel h3 { margin: 0 0 6px; font-size: 15px; }
+  #svBack { flex: none; white-space: nowrap; font-weight: 600; }
+  #svBar #svBack { background: var(--glass); box-shadow: var(--shadow), inset 0 0 0 .5px var(--hair); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); padding: 8px 14px; border-radius: 999px; }
+  #svTitle { padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; }
+  #svPanel { position: absolute; top: 12px; right: 12px; z-index: 5; width: 288px; max-height: calc(100% - 180px); overflow: auto; padding: 14px 14px 10px; border-radius: 16px; }
+  #svPanel h3 { margin: 0 0 6px; font-size: 15px; font-weight: 700; letter-spacing: -0.015em; }
   #svPanel ol { margin: 0; padding-left: 20px; }
-  #svPanel button { display: flex; flex-direction: column; align-items: flex-start; padding: 5px 0; border: 0; background: none; cursor: pointer; text-align: left; }
-  #svPanel button span { color: var(--slate); font-size: 13px; }
+  #svPanel button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 6px 4px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }
+  #svPanel button:hover { background: var(--fill); }
+  #svPanel button span { color: var(--slate); font-size: 12px; }
   #svGuide { position: absolute; right: 16px; bottom: 16px; z-index: 4; width: 130px; height: 130px; overflow: visible; pointer-events: none; }
-  #svGuide line { stroke: var(--ink); stroke-width: 2; }
+  #svGuide line { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
   #svGuide circle { fill: var(--ink); }
   #svGuide text { fill: var(--ink); font: 600 11px var(--font); text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: var(--ground); stroke-width: 3px; }
-  #svControls { position: absolute; left: 16px; bottom: 16px; z-index: 5; }
-  #svControls { max-width: calc(100% - 178px); } /* stay clear of the direction guide (bottom right); a cap, not a right edge, so empty space never covers the chart */
-  .ride { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: min(440px, calc(100vw - 32px)); padding: 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
-  .ride input[type=range] { flex: 1 1 160px; }
-  .rate { min-width: 2.5em; text-align: center; color: var(--slate); }
+  #svControls { position: absolute; left: calc(var(--rail) + 0px); bottom: 16px; z-index: 5; max-width: calc(100% - var(--rail) - 178px); }
+  .ride { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: min(460px, calc(100vw - 32px)); padding: 8px; border-radius: 14px; background: var(--glass); box-shadow: var(--shadow), inset 0 0 0 .5px var(--hair); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
+  .ride input[type=range] { flex: 1 1 160px; accent-color: var(--ink); }
+  .rate { min-width: 2.5em; text-align: center; color: var(--slate); font-variant-numeric: tabular-nums; }
   .fly { display: flex; align-items: flex-end; gap: 10px; }
-  .stick { position: relative; width: 110px; height: 110px; border: 1px solid var(--rule); border-radius: 50%; background: color-mix(in srgb, var(--panel) 80%, transparent); touch-action: none; }
-  .knob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px; border-radius: 50%; background: var(--signal); }
+  .stick { position: relative; width: 112px; height: 112px; border-radius: 50%; background: var(--glass-thin); box-shadow: inset 0 0 0 .5px var(--hair); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); touch-action: none; }
+  .knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px; border-radius: 50%; background: var(--panel); box-shadow: 0 2px 8px rgb(0 0 0 / .25); }
   .vbtns { display: flex; flex-direction: column; gap: 6px; }
-  .keys { margin: 0; max-width: 220px; padding: 6px 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; color: var(--slate); font-size: 13px; }
+  .vbtns button { background: var(--glass) !important; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+  .keys { margin: 0; max-width: 230px; padding: 8px 12px; border-radius: 12px; color: var(--slate); font-size: 13px; background: var(--glass-thin); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
   @media (pointer: fine) { .stick, .vbtns { display: none; } }
   @media (pointer: coarse) { .keys { display: none; } }
 
-  /* Phone: chart on top, one tab of controls below */
+  /* ---------- phone: the sidebar becomes a bottom sheet over a full-screen chart ---------- */
   @media (max-width: 699px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto 34dvh; grid-template-areas: "brand" "stage" "tabs" "pane"; }
-    #rail { display: contents; }
-    .brand { grid-area: brand; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--rule); }
-    #stage { grid-area: stage; }
-    .tabs { grid-area: tabs; display: flex; background: var(--panel); border-top: 1px solid var(--rule); }
-    .tabs button { flex: 1; padding: 10px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--slate); font-weight: 600; cursor: pointer; }
-    .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--signal); }
-    .pane { grid-area: pane; overflow: auto; padding: 12px 16px 16px; background: var(--panel); }
-    .app[data-tab="ask"] #cos, .app[data-tab="cos"] #ask { display: none; }
-    .pane > h2 { display: none; }
-    .q { padding: 7px 0 7px 14px; }
-    .q-title { font-size: 18px; }
-    .q-more > span { display: none; } /* phone: keep the measure list, drop the sentence */
-    .q-more, .measures { margin-top: 4px; }
-    #status { display: none; }
-    #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 55dvh; border-radius: 12px 12px 0 0; z-index: 10; }
-    #svPanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 12px 12px 0 0; }
-    #svControls { max-width: calc(100% - 32px); }
+    :root { --rail: 12px; }
+    #rail { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 50dvh; border-radius: 16px 16px 0 0; will-change: transform; transition: opacity .2s ease; }
+    .grip { display: block; padding: 6px 16px max(14px, env(safe-area-inset-bottom)); cursor: grab; touch-action: none; } /* peek clears the home indicator */
+    .grabber { display: block; width: 36px; height: 5px; margin: 0 auto 10px; padding: 0; border: 0; border-radius: 3px; background: var(--fill-strong); cursor: pointer; }
+    .grabber::after { content: ""; position: absolute; inset: -12px -40px; } /* bigger touch target than it looks */
+    .grabber { position: relative; }
+    .peek-q { margin: 0; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.022em; }
+    .key { display: flex; flex-wrap: wrap; gap: 4px 14px; list-style: none; margin: 6px 0 0; padding: 0; color: var(--slate); font-size: 13px; }
+    .body { padding: 4px 12px calc(16px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; }
+    #rail[data-detent="top"] .body { overflow: auto; touch-action: pan-y; }
+    .brand h1 { display: none; }
+    .brand { order: 9; } /* status line at the end of the sheet */
+    body.sv-on #rail { opacity: 0; pointer-events: none; }
+    #empty { inset: 0 0 var(--sheet, 140px) 0; }
+    #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; will-change: transform; }
+    #card .grabber { display: block; margin-bottom: 12px; }
+    #card dl { overflow: auto; }
+    #svBar { left: 12px; right: 12px; flex-wrap: wrap; align-items: flex-start; }
+    #svTitle { font-size: 13px; border-radius: 12px; max-width: 100%; } /* long names get their own line */
+    #svPanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 16px 16px 0 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    #svControls { left: 12px; max-width: calc(100% - 24px); bottom: calc(16px + env(safe-area-inset-bottom)); }
     #svGuide { top: 84px; right: 8px; bottom: auto; width: 100px; height: 100px; } /* clears a three-line "Now passing" title */
-    #svTitle { font-size: 13px; }
+    #svMenu, #svHint { top: 156px; }
   }
+  @media (min-width: 700px) { .peek { display: none; } }
 </style>
 </head>
 <body>
-<div class="app" data-tab="ask">
-  <aside id="rail">
-    <div class="brand">
-      <h1>LLM map</h1>
-      <button class="link" id="aboutBtn">About</button>
-    </div>
-    <div class="tabs" role="tablist">
-      <button role="tab" id="tab-ask" aria-controls="ask" aria-selected="true">Question</button>
-      <button role="tab" id="tab-cos" aria-controls="cos" aria-selected="false">Companies</button>
-    </div>
-    <section class="pane" id="ask" aria-labelledby="h-ask">
-      <h2 id="h-ask">Ask a question</h2>
+<main id="stage">
+  <div id="chart" role="img" aria-label="3D chart of language models"></div>
+  <div id="tags"></div>
+  <div id="tip" class="glass-thin" hidden></div>
+  <div id="svBar" hidden><button id="svBack">Back to overview</button><span id="svTitle" class="glass-thin"></span></div>
+  <aside id="svPanel" class="glass" hidden aria-label="Nearby models"></aside>
+  <svg id="svGuide" hidden aria-hidden="true"></svg>
+  <div id="svControls"></div>
+  <div id="dropLabel" hidden></div>
+  <div id="empty" hidden></div>
+  <article id="card" class="glass" hidden aria-live="polite"></article>
+</main>
+
+<aside id="rail" class="glass" aria-label="Controls">
+  <div class="grip">
+    <button class="grabber" id="grabber" aria-label="Show more or fewer controls"></button>
+    <div class="peek"><p class="peek-q" id="peekQ"></p><ul class="key" id="peekKey"></ul></div>
+  </div>
+  <div class="body">
+    <header class="brand"><h1>LLM map</h1><p class="status" id="status"></p></header>
+    <section aria-labelledby="h-ask">
+      <h2 id="h-ask">Question</h2>
       <div id="questions" role="radiogroup" aria-labelledby="h-ask"></div>
     </section>
-    <section class="pane" id="cos" aria-labelledby="h-cos">
-      <h2 id="h-cos">Companies</h2>
-      <p id="count"></p>
-      <ul id="chips"></ul>
-      <details id="add">
-        <summary>+ Add a company</summary>
-        <input id="q" type="search" placeholder="Search companies" aria-label="Search companies">
-        <div id="list"></div>
-        <div class="row"><button class="link" id="all">Show all</button><button class="link" id="none">Clear all</button><button class="link" id="top">Top 5 only</button></div>
-      </details>
+    <section aria-labelledby="h-cos">
+      <div class="cos-head"><h2 id="h-cos">Companies</h2><span id="count"></span></div>
+      <div class="seg" role="group" aria-label="Quick pick">
+        <button data-pick="top" aria-pressed="false">Top 5</button><button data-pick="all" aria-pressed="false">All</button><button data-pick="none" aria-pressed="false">None</button>
+      </div>
+      <input id="q" type="search" placeholder="Search" aria-label="Search companies">
+      <div id="cos-list" role="group" aria-labelledby="h-cos"></div>
     </section>
-    <p id="status"></p>
-  </aside>
-  <main id="stage">
-    <div id="chart" role="img" aria-label="3D chart of language models"></div>
-    <div id="tags"></div>
-    <div id="tip" hidden></div>
-    <div id="svBar" hidden><button id="svBack">Back to overview</button><span id="svTitle"></span></div>
-    <aside id="svPanel" hidden aria-label="Nearby models"></aside>
-    <svg id="svGuide" hidden aria-hidden="true"></svg>
-    <div id="svControls"></div>
-    <button id="figure" title="Street View" aria-label="Street View: drag the figure into the chart, or press to choose where to go">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="5" fill="#f5c518" stroke="#1d2733" stroke-width="1.5"/><path d="M9 14h14l-2 8h-3l-1 8h-2l-1-8h-3z" fill="#f5c518" stroke="#1d2733" stroke-width="1.5" stroke-linejoin="round"/></svg>
-    </button>
-    <div id="svMenu" hidden>
-      <p>Step into the chart</p>
-      <button data-mode="stand">Stand at a model</button>
-      <button data-mode="ride">Ride a company's line</button>
-      <button data-mode="fly">Fly around</button>
-    </div>
-    <div id="svHint" hidden></div>
-    <div id="dropLabel" hidden></div>
-    <div id="empty" hidden></div>
-    <article id="card" hidden aria-live="polite"></article>
-  </main>
+  </div>
+</aside>
+
+<div id="ctrls" class="glass">
+  <button id="aboutBtn" title="About this map" aria-label="About this map">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg>
+  </button>
+  <button id="homeBtn" title="Reset view" aria-label="Reset view">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v4h4"/></svg>
+  </button>
+  <button id="figure" title="Street View" aria-label="Street View: drag the figure into the chart, or press to choose where to go">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="5" fill="#f5c518" stroke="#1d2733" stroke-width="1.5"/><path d="M9 14h14l-2 8h-3l-1 8h-2l-1-8h-3z" fill="#f5c518" stroke="#1d2733" stroke-width="1.5" stroke-linejoin="round"/></svg>
+  </button>
 </div>
+<div id="svMenu" class="glass" hidden>
+  <p>Step into the chart</p>
+  <button data-mode="stand">Stand at a model</button>
+  <button data-mode="ride">Ride a company's line</button>
+  <button data-mode="fly">Fly around</button>
+</div>
+<div id="svHint" class="glass" hidden></div>
 
 <dialog id="about" aria-labelledby="about-h">
   <h2 id="about-h">How to use this map</h2>
@@ -227,6 +280,7 @@
     <li>Each dot is one AI model. Each line joins one company's models, oldest to newest.</li>
     <li>Drag to turn the chart. Scroll, or pinch on a phone, to zoom.</li>
     <li>Click a dot to see all of that model's numbers.</li>
+    <li>Drag the yellow figure into the chart to step inside it.</li>
     <li>The link in your address bar keeps your question and companies, so you can share exactly what you see.</li>
   </ul>
   <h2>What the measures mean</h2>
@@ -234,7 +288,7 @@
   <h2>Where the numbers come from</h2>
   <p>Smartness, cost, price, speed and release dates come from <a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a>. ARC-AGI-2 scores come from the <a href="https://arcprize.org/leaderboard" target="_blank" rel="noopener">ARC Prize leaderboard</a> and are matched to the same model and effort setting; models ARC hasn't tested have no score.</p>
   <p id="about-status"></p>
-  <form method="dialog"><button class="btn">Close</button></form>
+  <form method="dialog"><button class="btn">Done</button></form>
 </dialog>
 
 <script type="module" src="app.js"></script>

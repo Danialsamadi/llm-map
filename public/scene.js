@@ -74,21 +74,35 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   }
   const onFrame = f => { subs.add(f); render(); return () => subs.delete(f); };
 
+  // The chart fills the window and panels float over it; insets keep the cube centred in the part left uncovered.
+  let insets = { left: 0, bottom: 0 };
+  function applyView() {
+    const w = container.clientWidth, h = container.clientHeight;
+    camera.aspect = w / h;
+    if (insets.left || insets.bottom) camera.setViewOffset(w, h, -insets.left / 2, insets.bottom / 2, w, h);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+  }
+  // the starting view: the whole cube, further out when the open area is tall and narrow
+  function home() {
+    const w = container.clientWidth - insets.left, h = container.clientHeight - insets.bottom;
+    return new THREE.Vector3(1, 0.75, -1).normalize().multiplyScalar(5 * Math.max(1, Math.min(2.2, h / Math.max(1, w))));
+  }
+
   function resize() {
     const w = container.clientWidth, h = container.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
+    applyView();
     if (last && Math.abs(labelScale() / builtK - 1) > 0.05) buildFrame(last.scales, last.titles); // small canvas: labels grew or shrank
-    if (!placed) { // first size known: frame the whole cube, further out on tall narrow canvases
-      placed = true;
-      camera.position.set(1, 0.75, -1).normalize().multiplyScalar(5 * Math.max(1, Math.min(2.2, h / w)));
-      controls.target.set(0, 0, 0); controls.update();
-    }
+    if (!placed) { placed = true; camera.position.copy(home()); controls.target.set(0, 0, 0); controls.update(); }
     render();
   }
   new ResizeObserver(resize).observe(container);
   controls.addEventListener('change', render);
+  // a drag grabs the chart even in the middle of a "Reset view" glide
+  canvas.addEventListener('pointerdown', () => { if (resetting) { subs.delete(anim); anim = null; resetting = false; controls.update(); } }, true);
+  let resetting = false;
 
   // ---------- building blocks ----------
   function clear(group) {
@@ -173,6 +187,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   const screen = (p, rect) => { v.copy(p).project(camera); return v.z > 1 || v.z < -1 ? null : [((v.x + 1) / 2) * rect.width, ((1 - v.y) / 2) * rect.height]; };
   function pick(clientX, clientY, kinds = ['dot', 'line', 'floor']) {
     if (!state) return null;
+    camera.updateMatrixWorld(); // don't depend on a frame having been drawn since the camera last moved
     const rect = canvas.getBoundingClientRect(), px = clientX - rect.left, py = clientY - rect.top;
     if (px < 0 || py < 0 || px > rect.width || py > rect.height) return null;
     if (kinds.includes('dot')) {
@@ -229,7 +244,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   // ---------- camera glide (ease in-out); a new glide replaces a running one ----------
   function animateCamera({ position, look, fov = camera.fov, duration = 0, done }) {
     if (anim) subs.delete(anim);
-    anim = null;
+    anim = null; resetting = false;
     const p0 = camera.position.clone(), l0 = camera.getWorldDirection(new THREE.Vector3()).add(camera.position), f0 = camera.fov;
     const P = new THREE.Vector3(position.x, position.y, position.z), L = new THREE.Vector3(look.x, look.y, look.z);
     const apply = e => {
@@ -251,7 +266,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
 
   // ---------- hover and click on dots ----------
   let down = null;
-  canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; onHover(null); }); // a drag hides the hover label
   canvas.addEventListener('pointerup', e => {
     if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 6) onClick(pick(e.clientX, e.clientY, ['dot'])?.index ?? null, e);
     down = null;
@@ -263,6 +278,17 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   return {
     ok: true, camera, controls, canvas, render, onFrame, setData, pick, preview, animateCamera,
     setOrbit: on => { controls.enabled = on; },
+    setInsets: ({ left = 0, bottom = 0 }) => {
+      if (left === insets.left && bottom === insets.bottom) return;
+      insets = { left, bottom }; applyView(); render();
+    },
+    // glide back to the starting view; any drag on the chart takes over immediately
+    resetView: duration => {
+      if (!controls.enabled) return;
+      animateCamera({ position: home(), look: { x: 0, y: 0, z: 0 }, fov: 45, duration,
+        done: () => { resetting = false; controls.target.set(0, 0, 0); controls.update(); } });
+      resetting = duration > 0;
+    },
     worldOf: j => state?.world.get(j),
     cubeOf: j => state?.pos.get(j),
     visible: () => state?.visible ?? [],

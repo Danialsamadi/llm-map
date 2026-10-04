@@ -2,6 +2,7 @@
 import { createScene } from './scene.js';
 import { readSV, writeSV, FLY_START } from './space.js';
 import { createStreetView } from './streetview.js';
+import { createSheet } from './sheet.js';
 
 const MEASURES = {
   intelligence: { name: 'Smartness', axis: 'Smartness (AA index)', better: 'higher is better', about: 'Artificial Analysis Intelligence Index: one score from tests of reasoning, coding and knowledge.', fmt: v => v.toFixed(1) },
@@ -27,20 +28,50 @@ const el = (tag, props = {}, ...kids) => { // tiny DOM builder; strings become t
   e.append(...kids);
   return e;
 };
-const mq = matchMedia('(max-width: 699px)'); // phone: short axis titles
+const icon = d => { // small stroked SVG icon from a path
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor');
+  s.setAttribute('stroke-width', '2.6'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
+  p.setAttribute('d', d); s.append(p);
+  return s;
+};
+const mq = matchMedia('(max-width: 699px)'); // phone: bottom sheet, short axis titles
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const kindOf = k => (MEASURES[k].log ? 'log' : MEASURES[k].date ? 'date' : 'linear');
 
-let data, names, totals, color, picked, axes, question, shownAxes, wantSV = null;
-const boxes = new Map(); // company -> its checkbox in the "Add a company" list
+let data, names, totals, color, picked, axes, question, shownAxes, wantSV = null, hiding = null;
+const boxes = new Map(); // company -> its checkbox in the company list
 let sv = null; // Street View, once available
 
 const scene = createScene($('chart'), {
   onHover: tip,
-  onClick: (i, e) => { if (sv?.handleTap(i, e)) return; if (i != null) showCard(i); },
+  onClick: (i, e) => { if (sv?.handleTap(i, e)) return; if (i != null) showCard(i); else hideCard(); },
 });
 window.llmMap = { scene, get sv() { return sv; } }; // handle for console debugging and browser checks
-if (scene.ok) sv = createStreetView({ scene, getState: () => ({ models: data.models, axes }), showCard, onChange: () => data && writeLink() });
+if (scene.ok) sv = createStreetView({ scene, getState: () => ({ models: data.models, axes }), showCard, onChange: () => { if (data) writeLink(); chrome(); } });
 else $('figure').hidden = true;
+
+// ---------- phone sheets ----------
+// peek: just the grabber, the question and the axis key; half; nearly full
+const sheetHeights = () => [document.querySelector('#rail .grip').offsetHeight, Math.round(innerHeight * 0.5), Math.round(innerHeight - 56)];
+const sheet = createSheet($('rail'), { detents: sheetHeights, grip: '.grip', enabled: () => mq.matches, onMove: chrome });
+const contentHeight = node => { const prev = node.style.height; node.style.height = 'auto'; const h = node.scrollHeight; node.style.height = prev; return h; };
+const cardSheet = createSheet($('card'), {
+  detents: () => [Math.min(contentHeight($('card')), Math.round(innerHeight * 0.72))],
+  grip: '#card', enabled: () => mq.matches, onDismiss: () => hideCard({ instant: true }),
+});
+
+// keep the cube centred in the part of the screen the panels leave open
+function chrome() {
+  const inside = !!sv?.active();
+  document.body.classList.toggle('sv-on', inside);
+  if (!scene.ok) return;
+  if (mq.matches) {
+    const h = inside ? 0 : innerHeight - $('rail').getBoundingClientRect().top;
+    document.documentElement.style.setProperty('--sheet', Math.max(0, h) + 'px');
+    scene.setInsets({ left: 0, bottom: Math.min(Math.max(0, h), innerHeight * 0.5) });
+  } else scene.setInsets({ left: $('rail').getBoundingClientRect().right, bottom: 0 });
+}
 
 async function load() {
   try {
@@ -85,41 +116,50 @@ function customPicker() {
   return wrap;
 }
 
-// what each axis means for the chosen question, under its title
+// what each axis means for the chosen question, under its title (and in the phone sheet's peek)
 function renderMeasures() {
+  const mark = i => el('i', { className: 'ax-mark ax-mark-' + i });
   for (const q of QUESTIONS) {
     const ul = $('m-' + q.id);
     if (q.id !== question) { ul.replaceChildren(); continue; }
-    ul.replaceChildren(...axes.map((k, i) => el('li', {}, el('span', {}, el('i', { className: 'ax-mark ax-mark-' + i }), MEASURES[k].name), el('span', { textContent: MEASURES[k].better }))));
+    ul.replaceChildren(...axes.map((k, i) => el('li', {}, el('span', {}, mark(i), MEASURES[k].name), el('span', { textContent: MEASURES[k].better }))));
   }
   document.querySelectorAll('#custom select').forEach((s, i) => { s.value = axes[i]; });
   document.querySelector(`input[name=question][value=${question}]`).checked = true;
+  $('peekQ').textContent = QUESTIONS.find(q => q.id === question).title;
+  $('peekKey').replaceChildren(...axes.map((k, i) => el('li', {}, mark(i), MEASURES[k].name)));
 }
 
 // ---------- companies ----------
 function renderPicker() {
+  const check = 'M5 12.5l4.5 4.5L19 7';
   for (const co of names) { // textContent only: company names come from the API
-    const cb = el('input', { type: 'checkbox' });
+    const cb = el('input', { type: 'checkbox', className: 'sr' });
     cb.onchange = () => { cb.checked ? picked.add(co) : picked.delete(co); change(); };
     boxes.set(co, cb);
-    $('list').append(el('label', {}, cb, dot(co), el('span', { textContent: co }), el('span', { className: 'n', textContent: totals.get(co) })));
+    const name = el('span', { className: 'name' }, co);
+    const row = el('label', { className: 'co' }, cb, dot(co), name, el('span', { className: 'n', textContent: totals.get(co) }), icon(check));
+    row.lastChild.classList.add('check');
+    $('cos-list').append(row);
   }
   $('q').oninput = () => { const q = $('q').value.toLowerCase(); for (const [co, cb] of boxes) cb.parentNode.hidden = !co.toLowerCase().includes(q); };
-  $('all').onclick = () => { picked = new Set(names); change(); };
-  $('none').onclick = () => { picked = new Set(); change(); };
-  $('top').onclick = () => { picked = new Set(names.slice(0, TOP)); change(); };
+  for (const b of document.querySelectorAll('.seg button')) b.onclick = () => {
+    picked = new Set(b.dataset.pick === 'all' ? names : b.dataset.pick === 'top' ? names.slice(0, TOP) : []);
+    change();
+  };
 }
 
 const dot = co => { const d = el('span', { className: 'dot' }); d.style.background = color.get(co); return d; };
 
-function renderChips(onChart) {
-  $('chips').replaceChildren(...names.filter(c => picked.has(c)).map(co => {
-    const x = el('button', { textContent: '×', title: 'Remove ' + co, 'aria-label': 'Remove ' + co });
-    x.onclick = () => { picked.delete(co); change(); };
-    const n = onChart.get(co) ?? 0;
-    return el('li', {}, dot(co), el('span', { textContent: co }), el('span', { className: 'n', textContent: n ? `${n} on chart` : 'no data here' }), x);
-  }));
-  for (const [co, cb] of boxes) cb.checked = picked.has(co);
+function renderCompanies(onChart) {
+  const top = names.slice(0, TOP);
+  const pickedNow = picked.size === names.length ? 'all' : !picked.size ? 'none' : picked.size === TOP && top.every(c => picked.has(c)) ? 'top' : null;
+  for (const b of document.querySelectorAll('.seg button')) b.setAttribute('aria-pressed', b.dataset.pick === pickedNow);
+  for (const [co, cb] of boxes) {
+    cb.checked = picked.has(co);
+    const name = cb.parentNode.querySelector('.name'), empty = picked.has(co) && !onChart.get(co);
+    name.replaceChildren(co, ...(empty ? [el('span', { className: 'note', textContent: 'Not in this view' })] : []));
+  }
 }
 
 // ---------- chart ----------
@@ -130,19 +170,19 @@ function draw() {
     sv?.refresh();
   }
   const onChart = new Map([...Map.groupBy(visible, i => data.models[i].company)].map(([co, idx]) => [co, idx.length]));
-  $('count').textContent = `${visible.length} of ${data.models.length} models on the chart`;
-  renderChips(onChart);
+  $('count').textContent = `${visible.length} of ${data.models.length} on the chart`;
+  renderCompanies(onChart);
   emptyState(visible.length);
 }
 
 function tip(i, x, y) {
   const t = $('tip');
   if (i == null || !data) { t.hidden = true; return; }
-  const m = data.models[i], r = $('stage').getBoundingClientRect();
+  const m = data.models[i];
   t.replaceChildren(el('strong', { textContent: m.name }), el('span', { textContent: m.company }));
   t.hidden = false;
-  t.style.left = Math.max(8, Math.min(x - r.left + 14, r.width - t.offsetWidth - 8)) + 'px';
-  t.style.top = Math.max(8, y - r.top - t.offsetHeight - 12) + 'px';
+  t.style.left = Math.max(8, Math.min(x + 14, innerWidth - t.offsetWidth - 8)) + 'px';
+  t.style.top = Math.max(8, y - t.offsetHeight - 12) + 'px';
 }
 
 function emptyState(n) {
@@ -161,21 +201,51 @@ function emptyState(n) {
   }
 }
 
+// ---------- model details: a popover that grows out of the dot it belongs to; a sheet on phones ----------
 function showCard(i) {
   if (i == null) return;
-  const m = data.models[i];
-  const close = el('button', { id: 'close', textContent: '×', 'aria-label': 'Close details' });
-  close.onclick = hideCard;
-  const rows = Object.entries(MEASURES).filter(([k]) => k !== 'release').flatMap(([k, ms]) => [
+  const m = data.models[i], card = $('card');
+  const close = el('button', { id: 'close', 'aria-label': 'Close details' }, icon('M6 6l12 12M18 6L6 18'));
+  close.onclick = () => hideCard();
+  const rows = Object.entries(MEASURES).filter(([k]) => k !== 'release').map(([k, ms]) => el('div', { className: 'row' },
     el('dt', { textContent: ms.name }),
-    m[k] == null ? el('dd', { className: 'none', textContent: 'Not measured' }) : el('dd', {}, ms.fmt(m[k]), el('small', { textContent: ms.better })),
-  ]);
-  $('card').replaceChildren(close, el('h3', { textContent: m.name }),
+    m[k] == null ? el('dd', { className: 'none', textContent: 'Not measured' }) : el('dd', {}, ms.fmt(m[k]), el('small', { textContent: ms.better }))));
+  card.replaceChildren(el('div', { className: 'grabber' }), close, el('h3', { textContent: m.name }),
     el('p', { className: 'who' }, dot(m.company), el('span', { textContent: m.company + (m.release ? ', released ' + MEASURES.release.fmt(m.release) : '') })),
     el('dl', {}, ...rows));
-  $('card').hidden = false;
+  hiding?.cancel(); hiding = null; // reopened while closing: keep it open
+  const wasOpen = !card.hidden;
+  card.hidden = false;
+  if (mq.matches) {
+    card.style.left = card.style.top = card.style.transformOrigin = '';
+    if (wasOpen) cardSheet.layout(); // another dot: resize to the new content
+    else { cardSheet.reset(); cardSheet.open(0); } // rises from the bottom on a spring
+    return;
+  }
+  // desktop popover: beside the dot, inside the open area, scaling out from the dot itself
+  const p = scene.worldOf(i)?.clone().project(scene.camera);
+  const ax = p ? ((p.x + 1) / 2) * innerWidth : innerWidth - 40, ay = p ? ((1 - p.y) / 2) * innerHeight : innerHeight - 40;
+  const w = card.offsetWidth, h = card.offsetHeight, minX = $('rail').getBoundingClientRect().right + 12;
+  let left = ax + 20 + w > innerWidth - 12 ? ax - 20 - w : ax + 20;
+  left = Math.max(minX, Math.min(left, innerWidth - 12 - w));
+  const top = Math.max(12, Math.min(ay - 44, innerHeight - 12 - h));
+  Object.assign(card.style, { left: left + 'px', top: top + 'px', transformOrigin: `${ax - left}px ${ay - top}px` });
+  if (!wasOpen) card.animate(reduced.matches ? [{ opacity: 0 }, { opacity: 1 }]
+    : [{ opacity: 0, transform: 'scale(.6)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
+  { duration: reduced.matches ? 150 : 260, easing: 'cubic-bezier(.2, .9, .25, 1)' });
 }
-function hideCard() { $('card').hidden = true; }
+
+function hideCard({ instant = false } = {}) {
+  const card = $('card');
+  if (card.hidden) return;
+  const done = () => { card.hidden = true; cardSheet.reset(); };
+  if (instant) return done();
+  if (mq.matches) return cardSheet.close(done);
+  hiding = card.animate(reduced.matches ? [{ opacity: 1 }, { opacity: 0 }]
+    : [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: 'scale(.6)', filter: 'blur(8px)' }], // back into the dot
+  { duration: reduced.matches ? 120 : 180, easing: 'cubic-bezier(.4, 0, 1, 1)' });
+  hiding.onfinish = () => { hiding = null; done(); };
+}
 
 // ---------- state <-> link ----------
 // #x=..&y=..&z=..&c=Company&c=Company[&sv=stand&m=Model | &sv=ride&r=Company | &sv=fly]
@@ -238,22 +308,28 @@ function init() {
   renderPicker();
   readLink();
   change();
+  layout();
   openSV();
+}
+
+function layout() {
+  if (mq.matches) sheet.open(sheet.index(), { instant: true }); else sheet.reset();
+  chrome();
 }
 
 // ---------- page chrome ----------
 $('glossary').append(...Object.values(MEASURES).map(m => el('li', {}, el('strong', { textContent: m.name + ': ' }), m.about)));
 $('aboutBtn').onclick = () => $('about').showModal();
-for (const t of ['ask', 'cos']) $('tab-' + t).onclick = () => {
-  document.querySelector('.app').dataset.tab = t;
-  for (const u of ['ask', 'cos']) $('tab-' + u).setAttribute('aria-selected', u === t);
-};
+$('homeBtn').onclick = () => scene.ok && scene.resetView(reduced.matches ? 0 : 700);
+$('grabber').onclick = () => sheet.cycle();
+document.querySelector('.peek').onclick = () => { if (sheet.index() === 0) sheet.open(1); };
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('card').hidden && !$('about').open) { hideCard(); e.preventDefault(); } // preventDefault: Street View won't also exit
 }, true); // capture: runs before Street View's own Escape handler, which was registered earlier
-mq.addEventListener('change', () => data && draw());
+mq.addEventListener('change', () => { hideCard({ instant: true }); if (data) { layout(); draw(); } });
+addEventListener('resize', () => { if (data && mq.matches) sheet.layout(); chrome(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => data && draw()); // colours come from CSS variables
-document.fonts?.ready.then(() => data && draw()); // redraw labels once the web font is in
+document.fonts?.ready.then(() => data && draw()); // redraw labels once fonts are ready
 addEventListener('hashchange', () => location.reload()); // a pasted link in an open tab; our own replaceState doesn't fire this
 
 load().then(d => { data = d; init(); }, () => {
