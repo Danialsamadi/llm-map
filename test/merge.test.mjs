@@ -7,6 +7,9 @@ test('key ignores word order, effort and noise words', () => {
   assert.equal(key('Gemini 3.5 Flash Preview'), key('Gemini 3.5 Flash'));
   assert.equal(key('claude-sonnet-4-20250514'), key('Claude Sonnet 4'));
   assert.equal(key('GPT-5.6 Sol (high)'), key('GPT-5.6 Sol'));
+  assert.equal(key('Claude Sonnet 4 (2025-05-14)'), key('Claude Sonnet 4'));
+  assert.equal(key('Gemini 2.5 Pro Preview 05-06'), key('Gemini 2.5 Pro'));
+  assert.equal(key("GPT-4o (Nov '24)"), key('GPT-4o'));
 });
 
 test('key keeps version order', () => {
@@ -26,8 +29,8 @@ const aaModel = (over = {}) => ({
 test('merge maps AA fields and attaches max ARC-AGI-2 score', () => {
   const arcModels = [{ id: 'm1', displayName: 'GPT-5.6 Sol' }, { id: 'm2', displayName: 'GPT-5.6 Sol (low)' }];
   const arcEvals = [
-    { datasetId: 'v2_Semi_Private', modelId: 'm1', score: 0.9, display: true },
     { datasetId: 'v2_Semi_Private', modelId: 'm2', score: 0.925, display: true },
+    { datasetId: 'v2_Semi_Private', modelId: 'm1', score: 0.9, display: true },
     { datasetId: 'v1_Semi_Private', modelId: 'm1', score: 0.99, display: true },
   ];
   assert.deepEqual(merge([aaModel()], arcModels, arcEvals), [{

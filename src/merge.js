@@ -6,7 +6,13 @@ const NOISE = new Set(['preview', 'thinking', 'reasoning', 'non', 'high', 'low',
 // Name → match key: words sorted (order differs between sources), numbers kept in order (GPT-5.4 ≠ GPT-4.5).
 // ponytail: heuristic name matching; add a manual alias map if important models fail to match.
 export function key(name) {
-  const tokens = name.toLowerCase().split(/[^a-z0-9]+/)
+  let cleaned = name.toLowerCase();
+  // Strip common date patterns before tokenizing
+  cleaned = cleaned.replace(/\d{4}-\d{2}-\d{2}/g, ''); // YYYY-MM-DD (e.g. 2025-05-14)
+  cleaned = cleaned.replace(/(0[1-9]|1[0-2])-\d{2}/g, ''); // MM-DD where MM is 01-12 (e.g. 05-06)
+  cleaned = cleaned.replace(/\b(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|oct|october|nov|november|dec|december)\.?\s*'?\d{2,4}/gi, ''); // month + year (e.g. Nov '24, Sep 2025)
+
+  const tokens = cleaned.split(/[^a-z0-9]+/)
     .filter(t => t && !NOISE.has(t) && !/^\d{4,8}$/.test(t) && !/^\d+k$/.test(t));
   const words = tokens.filter(t => !/^\d+$/.test(t)).sort();
   const nums = tokens.filter(t => /^\d+$/.test(t));
