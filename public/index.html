@@ -1,1 +1,116 @@
-<!doctype html><meta charset="utf-8"><title>LLM 3D Map</title><p>Coming soon.</p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM 3D Map</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/4.1.2/plotly.min.js"></script>
+<style>
+  :root { --bg: #fafafa; --fg: #1a1a1a; --muted: #666; --grid: #d8d8d8; --card: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0e1117; --fg: #e6e6e6; --muted: #9aa4b2; --grid: #30363d; --card: #161b22; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 12px 16px; }
+  h1 { font-size: 18px; margin: 0 auto 0 0; }
+  label { display: flex; gap: 6px; align-items: center; }
+  select { background: var(--card); color: var(--fg); border: 1px solid var(--grid); border-radius: 6px; padding: 4px 6px; font: inherit; }
+  #count { color: var(--muted); }
+  #badge { padding: 2px 10px; border: 1px solid var(--grid); border-radius: 999px; color: var(--muted); }
+  #chart { flex: 1; min-height: 0; }
+  #chart p { padding: 16px; }
+  footer { padding: 8px 16px; color: var(--muted); font-size: 12px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LLM 3D Map</h1>
+  <label>X <select id="x"></select></label>
+  <label>Y <select id="y"></select></label>
+  <label>Z <select id="z"></select></label>
+  <span id="count"></span>
+  <span id="badge">Loading…</span>
+</header>
+<div id="chart"></div>
+<footer>Drag to rotate · scroll to zoom · click a company to hide it, double-click to show only it. Lines join each company's models in release order.
+  Data: <a href="https://artificialanalysis.ai/">Artificial Analysis</a> · <a href="https://arcprize.org/leaderboard">ARC Prize</a> (ARC-AGI-2).</footer>
+<script>
+const AXES = {
+  intelligence: { short: 'Intelligence', label: 'Intelligence (AA Index)', fmt: v => v.toFixed(1) },
+  cost: { short: 'Cost / task', label: 'Cost per task, $ (log)', log: true, fmt: v => '$' + v.toPrecision(3) },
+  price: { short: 'Price', label: 'Price, $ per 1M tokens (log)', log: true, fmt: v => '$' + v.toPrecision(3) + ' / 1M' },
+  speed: { short: 'Speed', label: 'Speed, output tokens/s', fmt: v => Math.round(v) + ' tok/s' },
+  agi: { short: 'ARC-AGI-2', label: 'ARC-AGI-2 score, %', fmt: v => v.toFixed(1) + '%' },
+  release: { short: 'Release date', label: 'Release date', date: true, fmt: v => v },
+};
+const DEFAULT = { x: 'intelligence', y: 'cost', z: 'speed' };
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const $ = id => document.getElementById(id);
+let data;
+
+async function load() {
+  try {
+    const r = await fetch('/api/models');
+    if (!r.ok) throw new Error(r.status);
+    return { ...(await r.json()), mode: 'Live' };
+  } catch {
+    const r = await fetch('models.json');
+    if (!r.ok) throw new Error('no snapshot');
+    return { ...(await r.json()), mode: 'Snapshot' };
+  }
+}
+
+function badge() {
+  const t = new Date(data.updated);
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+  $('badge').textContent = data.mode === 'Live'
+    ? `Live · updated ${mins < 60 ? mins + ' min' : Math.round(mins / 60) + ' h'} ago`
+    : `Snapshot · ${t.toLocaleDateString()}`;
+}
+
+function hover(m) {
+  const rows = Object.entries(AXES).filter(([k]) => k !== 'release' && m[k] != null)
+    .map(([k, a]) => `${a.short}: ${a.fmt(m[k])}`);
+  return [`<b>${m.name}</b>`, `${m.company} · ${m.release ?? 'release date unknown'}`, ...rows].join('<br>');
+}
+
+function axis(k) {
+  const a = AXES[k];
+  return { title: { text: a.label }, type: a.log ? 'log' : a.date ? 'date' : 'linear', gridcolor: css('--grid'), color: css('--fg') };
+}
+
+function draw() {
+  const sel = ['x', 'y', 'z'].map(id => $(id).value);
+  const shown = data.models.filter(m => sel.every(k => m[k] != null));
+  const traces = [...Map.groupBy(shown, m => m.company)]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([company, ms]) => {
+      ms.sort((a, b) => (a.release ?? '').localeCompare(b.release ?? ''));
+      const [x, y, z] = sel.map(k => ms.map(m => m[k]));
+      return { type: 'scatter3d', mode: 'lines+markers', name: `${company} (${ms.length})`, x, y, z,
+        customdata: ms.map(hover), hovertemplate: '%{customdata}<extra></extra>',
+        marker: { size: 4 }, line: { width: 2 } };
+    });
+  const [xaxis, yaxis, zaxis] = sel.map(axis);
+  Plotly.react('chart', traces, {
+    scene: { xaxis, yaxis, zaxis },
+    paper_bgcolor: 'rgba(0,0,0,0)', font: { color: css('--fg') },
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+    legend: { orientation: innerWidth < 700 ? 'h' : 'v' },
+    uirevision: 'keep', // keep camera + hidden companies when axes change
+  }, { responsive: true, displaylogo: false });
+  $('count').textContent = `${shown.length} of ${data.models.length} models shown`;
+}
+
+for (const id of ['x', 'y', 'z']) {
+  $(id).innerHTML = Object.entries(AXES).map(([k, a]) => `<option value="${k}">${a.short}</option>`).join('');
+  $(id).value = DEFAULT[id];
+  $(id).onchange = draw;
+}
+load().then(d => { data = d; badge(); draw(); }).catch(() => {
+  $('badge').textContent = 'No data';
+  $('chart').innerHTML = '<p>Could not load model data. Please try again later.</p>';
+});
+</script>
+</body>
+</html>
