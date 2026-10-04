@@ -54,7 +54,8 @@ else $('figure').hidden = true;
 // ---------- phone sheets ----------
 // peek: just the grabber, the question and the axis key; half; nearly full
 const sheetHeights = () => [document.querySelector('#rail .grip').offsetHeight, Math.round(innerHeight * 0.5), Math.round(innerHeight - 56)];
-const sheet = createSheet($('rail'), { detents: sheetHeights, grip: '.grip', enabled: () => mq.matches, onMove: chrome });
+// Dragging moves only the sheet: no per-move reads, page-wide styles or chart redraws (those made it lag on phones).
+const sheet = createSheet($('rail'), { detents: sheetHeights, grip: '.grip', enabled: () => mq.matches });
 const contentHeight = node => { const prev = node.style.height; node.style.height = 'auto'; const h = node.scrollHeight; node.style.height = prev; return h; };
 const cardSheet = createSheet($('card'), {
   detents: () => [Math.min(contentHeight($('card')), Math.round(innerHeight * 0.72))],
@@ -67,9 +68,8 @@ function chrome() {
   document.body.classList.toggle('sv-on', inside);
   if (!scene.ok) return;
   if (mq.matches) {
-    const h = inside ? 0 : innerHeight - $('rail').getBoundingClientRect().top;
-    document.documentElement.style.setProperty('--sheet', Math.max(0, h) + 'px');
-    scene.setInsets({ left: 0, bottom: Math.min(Math.max(0, h), innerHeight * 0.5) });
+    document.documentElement.style.setProperty('--sheet', (inside ? 0 : sheetHeights()[0]) + 'px');
+    scene.setInsets({ left: 0, bottom: inside ? 0 : sheetHeights()[0] }); // centred above the peek; like Maps, the chart stays put while the sheet moves
   } else scene.setInsets({ left: $('rail').getBoundingClientRect().right, bottom: 0 });
 }
 
