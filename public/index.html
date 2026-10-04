@@ -177,10 +177,16 @@ document.addEventListener('pointerdown', e => { if (!det.contains(e.target)) det
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && det.open) { det.open = false; $('sum').focus(); } });
 mq.addEventListener('change', () => data && draw());
 // Plotly 3D ignores two-finger gestures: pinch scales the camera distance ourselves
-let pinch = 0, scale = 1, frame = 0;
+let pinch = 0, scale = 1, frame = 0, multi = false; // multi: a 2-finger gesture is in progress (until all fingers lift)
 const spread = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
 function touch(e) {
-  if (e.touches.length !== 2) { pinch = 0; return; } // one finger: leave it to Plotly (rotate)
+  if (!e.touches.length) multi = false;
+  if (e.touches.length !== 2) { // one finger: leave it to Plotly (rotate) ...
+    pinch = 0;
+    if (multi && e.type === 'touchmove') { e.preventDefault(); e.stopPropagation(); } // ... except the finger left after a pinch: Plotly's drag start is stale, a move would jump the view
+    return;
+  }
+  multi = true;
   e.preventDefault(); e.stopPropagation(); // two fingers: ours only, so Plotly does not also rotate
   const d = spread(e.touches);
   if (e.type === 'touchmove' && pinch && d) {
