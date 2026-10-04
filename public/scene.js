@@ -122,6 +122,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     last = { scales, titles }; builtK = k;
     const rule = css('--rule'), V = (x, y, z) => new THREE.Vector3(x, y, z);
     const [cx, cy, cz] = [0, 1, 2].map(i => css(`--ax-${i}`)); // one colour per axis, shared with the sidebar and Street View guide
+    const [tx0, ty0, tz0] = [0, 1, 2].map(i => css(`--ax-${i}-text`) || css(`--ax-${i}`)); // text may need a darker shade
     frame.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)), new THREE.LineBasicMaterial({ color: rule })));
     // the three edges the tick labels sit on, in their axis colour
     frame.add(segments([V(-1, -1, -1), V(1, -1, -1)], cx), segments([V(1, -1, -1), V(1, -1, 1)], cy), segments([V(-1, -1, -1), V(-1, 1, -1)], cz));
@@ -131,12 +132,12 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     for (const t of tz) grid.push(V(-1, t.cube, -1), V(-1, t.cube, 1), V(-1, t.cube, 1), V(1, t.cube, 1));
     frame.add(segments(grid, rule, 0.7));
     const tick = 0.09 * k, title = 0.11 * k;
-    for (const t of tx) frame.add(at(textSprite(t.label, tick, cx), t.cube, -1 - 0.05 * e, -1.14));
-    for (const t of ty) frame.add(at(textSprite(t.label, tick, cy), 1.14, -1 - 0.1 * e, -t.cube));
-    for (const t of tz) frame.add(at(textSprite(t.label, tick, cz), -1.12 - 0.05 * e, t.cube, -1.06 - 0.05 * e));
-    frame.add(at(textSprite(titles[0], title, cx, 700), 0, -1.12, -1.45 - 0.3 * e));
-    frame.add(at(textSprite(titles[1], title, cy, 700), 1.45 + 0.3 * e, -1.12, 0));
-    frame.add(at(textSprite(titles[2], title, cz, 700), -1.0 + 0.3 * e, 1.2 + 0.4 * e, -1.0 + 0.3 * e));
+    for (const t of tx) frame.add(at(textSprite(t.label, tick, tx0), t.cube, -1 - 0.05 * e, -1.14));
+    for (const t of ty) frame.add(at(textSprite(t.label, tick, ty0), 1.14, -1 - 0.1 * e, -t.cube));
+    for (const t of tz) frame.add(at(textSprite(t.label, tick, tz0), -1.12 - 0.05 * e, t.cube, -1.06 - 0.05 * e));
+    frame.add(at(textSprite(titles[0], title, tx0, 700), 0, -1.12, -1.45 - 0.3 * e));
+    frame.add(at(textSprite(titles[1], title, ty0, 700), 1.45 + 0.3 * e, -1.12, 0));
+    frame.add(at(textSprite(titles[2], title, tz0, 700), -1.0 + 0.3 * e, 1.2 + 0.4 * e, -1.0 + 0.3 * e));
   }
 
   // ---------- data ----------
