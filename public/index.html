@@ -9,21 +9,27 @@
   :root { --bg: #fafafa; --fg: #1a1a1a; --muted: #666; --grid: #d8d8d8; --card: #fff; }
   @media (prefers-color-scheme: dark) { :root { --bg: #0e1117; --fg: #e6e6e6; --muted: #9aa4b2; --grid: #30363d; --card: #161b22; } }
   * { box-sizing: border-box; }
-  body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  body { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
   header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 16px; }
   h1 { font-size: 18px; margin: 0 auto 0 0; }
   label { display: flex; gap: 6px; align-items: center; }
-  select { background: var(--card); color: var(--fg); border: 1px solid var(--grid); border-radius: 6px; padding: 4px 6px; font: inherit; }
+  select, #q, button, summary { background: var(--card); color: var(--fg); border: 1px solid var(--grid); border-radius: 6px; padding: 4px 6px; font: inherit; }
+  button, summary { cursor: pointer; }
+  details { position: relative; }
+  summary { user-select: none; }
+  #panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 2000; width: min(320px, calc(100vw - 32px)); max-height: 60vh; overflow: auto; background: var(--card); border: 1px solid var(--grid); border-radius: 8px; }
+  #tools { position: sticky; top: 0; display: flex; gap: 6px; padding: 8px; background: var(--card); }
+  #tools input { flex: 1; min-width: 0; }
+  #list { padding: 0 8px 8px; }
+  #list label { padding: 3px 0; }
+  .sw { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+  .muted { color: var(--muted); }
   #count { color: var(--muted); }
   #badge { padding: 2px 10px; border: 1px solid var(--grid); border-radius: 999px; color: var(--muted); }
   #chart { flex: 1; min-height: 0; }
   #chart p { padding: 16px; }
   footer { padding: 6px 16px; color: var(--muted); font-size: 12px; }
   footer a { color: inherit; }
-  @media (max-width: 699px) { /* phone: page scrolls; room for a square scene + legend under it */
-    body { height: auto; }
-    #chart { flex: none; height: calc(100vw + 360px); }
-  }
 </style>
 </head>
 <body>
@@ -32,6 +38,13 @@
   <label>X <select id="x"></select></label>
   <label>Y <select id="y"></select></label>
   <label>Z <select id="z"></select></label>
+  <details id="companies">
+    <summary id="sum">Companies: All</summary>
+    <div id="panel">
+      <div id="tools"><input id="q" type="search" placeholder="Search companies" aria-label="Search companies"><button id="all">All</button><button id="none">None</button></div>
+      <div id="list"></div>
+    </div>
+  </details>
   <span id="count"></span>
   <span id="badge">Loading…</span>
 </header>
@@ -50,8 +63,10 @@ const AXES = {
 const DEFAULT = { x: 'intelligence', y: 'cost', z: 'speed' };
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const $ = id => document.getElementById(id);
-let data;
-const mq = matchMedia('(max-width: 699px)'); // phone layout, same query as the CSS
+const PALETTE = ['#4e79a7','#f28e2b','#59a14f','#e15759','#b07aa1','#76b7b2','#edc948','#ff9da7','#9c755f','#bab0ac','#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#17becf','#bcbd22','#7f7f7f'];
+let data, names, color, picked; // names: all companies, most models first; picked: Set of selected companies
+const boxes = new Map(); // company -> its picker checkbox
+const mq = matchMedia('(max-width: 699px)'); // phone: short axis titles, camera further out
 
 async function load() {
   try {
@@ -86,7 +101,7 @@ function axis(k) {
 
 function draw() {
   const sel = ['x', 'y', 'z'].map(id => $(id).value);
-  const shown = data.models.filter(m => sel.every(k => m[k] != null));
+  const shown = data.models.filter(m => picked.has(m.company) && sel.every(k => m[k] != null));
   const traces = [...Map.groupBy(shown, m => m.company)]
     .sort((a, b) => b[1].length - a[1].length)
     .map(([company, ms]) => {
@@ -94,30 +109,70 @@ function draw() {
       const [x, y, z] = sel.map(k => ms.map(m => m[k]));
       return { type: 'scatter3d', mode: 'lines+markers', name: `${company} (${ms.length})`, x, y, z,
         customdata: ms.map(hover), hovertemplate: '%{customdata}<extra></extra>',
-        marker: { size: 4 }, line: { width: 2 } };
+        marker: { size: 4, color: color.get(company) }, line: { width: 2, color: color.get(company) } };
     });
   const [xaxis, yaxis, zaxis] = sel.map(axis);
-  const phone = mq.matches, low = phone ? 0.5 : 0; // phone: scene on top half, legend below it
-  const d = phone ? 1.45 : 1.2; // phone canvas is small: camera further out, short axis titles (a closer desktop camera clips the cube at 1024x768)
+  // camera: phone canvas is small, so further out; so is a short desktop canvas (header wraps), where 1.2 clips the axis titles
+  const d = mq.matches ? 1.45 : $('chart').clientHeight < 700 ? 1.25 : 1.2;
   Plotly.react('chart', traces, {
-    scene: { xaxis, yaxis, zaxis, aspectmode: 'cube', domain: { y: [low, 1] },
-      camera: { eye: { x: d, y: d, z: d } } },
+    scene: { xaxis, yaxis, zaxis, aspectmode: 'cube', camera: { eye: { x: d, y: d, z: d } } },
     paper_bgcolor: 'rgba(0,0,0,0)', font: { color: css('--fg') },
     margin: { l: 0, r: 0, t: 0, b: 0 },
-    // h legend wraps into columns as wide as its longest entry (1 column at 375px), so fix 2 columns
-    legend: phone ? { orientation: 'h', x: 0, y: low - 0.02, yanchor: 'top', maxheight: low - 0.04, entrywidthmode: 'fraction', entrywidth: 0.5, font: { size: 11 } } : { orientation: 'v' },
-    uirevision: 'keep', // keep camera + hidden companies when axes change
+    showlegend: false,
+    uirevision: 'keep', // keep camera when axes or companies change
   }, { responsive: true, displaylogo: false });
   $('count').textContent = `${shown.length} of ${data.models.length} models shown`;
+}
+
+// Any change (axis, company): sync picker, label, link and chart.
+function change() {
+  for (const [co, cb] of boxes) cb.checked = picked.has(co);
+  $('sum').textContent = 'Companies: ' + (picked.size === names.length ? 'All' : picked.size ? `${picked.size} of ${names.length}` : 'none');
+  const p = new URLSearchParams({ x: $('x').value, y: $('y').value, z: $('z').value });
+  if (picked.size < names.length) for (const c of picked.size ? names.filter(c => picked.has(c)) : ['']) p.append('c', c);
+  history.replaceState(null, '', '#' + p);
+  draw();
+}
+
+function init() {
+  const by = Map.groupBy(data.models, m => m.company);
+  names = [...by.keys()].sort((a, b) => by.get(b).length - by.get(a).length);
+  color = new Map(names.map((c, i) => [c, PALETTE[i % PALETTE.length]]));
+  for (const co of names) { // textContent only: company names come from the API
+    const label = document.createElement('label'), cb = document.createElement('input'), sw = document.createElement('span'), n = document.createElement('span');
+    cb.type = 'checkbox';
+    cb.onchange = () => { cb.checked ? picked.add(co) : picked.delete(co); change(); };
+    sw.className = 'sw'; sw.style.background = color.get(co);
+    n.className = 'muted'; n.textContent = `(${by.get(co).length})`;
+    label.append(cb, sw, co, n);
+    boxes.set(co, cb);
+    $('list').append(label);
+  }
+  const p = new URLSearchParams(location.hash.slice(1)), c = p.getAll('c'), known = c.filter(n => by.has(n));
+  for (const id of ['x', 'y', 'z']) if (Object.hasOwn(AXES, p.get(id))) $(id).value = p.get(id);
+  picked = new Set(!c.length || (!known.length && c.some(Boolean)) ? names : known); // no c, or only unknown names -> all; "c=" -> none
+  $('q').oninput = () => { const q = $('q').value.toLowerCase(); for (const [co, cb] of boxes) cb.parentNode.style.display = co.toLowerCase().includes(q) ? '' : 'none'; };
+  $('all').onclick = () => { picked = new Set(names); change(); };
+  $('none').onclick = () => { picked = new Set(); change(); };
+  for (const id of ['x', 'y', 'z']) $(id).onchange = change;
+  change();
 }
 
 for (const id of ['x', 'y', 'z']) {
   $(id).innerHTML = Object.entries(AXES).map(([k, a]) => `<option value="${k}">${a.short}</option>`).join('');
   $(id).value = DEFAULT[id];
-  $(id).onchange = draw;
 }
+// picker: keep the panel inside the window, close on outside click or Escape
+const det = $('companies');
+det.ontoggle = () => {
+  if (!det.open) return;
+  $('panel').style.left = '0';
+  $('panel').style.left = Math.min(0, innerWidth - 16 - $('panel').getBoundingClientRect().right) + 'px';
+};
+document.addEventListener('pointerdown', e => { if (!det.contains(e.target)) det.open = false; }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && det.open) { det.open = false; $('sum').focus(); } });
 mq.addEventListener('change', () => data && draw());
-load().then(d => { data = d; badge(); draw(); }).catch(() => {
+load().then(d => { data = d; badge(); init(); }).catch(() => {
   $('badge').textContent = 'No data';
   $('chart').innerHTML = '<p>Could not load model data. Please try again later.</p>';
 });
