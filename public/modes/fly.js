@@ -9,21 +9,21 @@ export const fly = {
     const look = new THREE.Vector3(0, eye.y, 0);
     if (look.distanceTo(eye) < 1e-3) look.set(0, eye.y, 1);
     const keys = new Set(), stick = { x: 0, y: 0 };
-    let vert = 0, origin = null;
+    let vert = 0, origin = null, id = null; // id: the finger that holds the stick
     const onButton = e => e.code === 'Space' && e.target instanceof HTMLElement && e.target.matches('button:focus-visible, summary:focus-visible, a:focus-visible'); // keyboard focus on a button: Space presses it
     const down = e => { if (KEYS.has(e.code) && !typing(e.target) && !onButton(e)) { keys.add(e.code); e.preventDefault(); } };
     const up = e => keys.delete(e.code), blur = () => keys.clear();
 
     // phone: joystick to move, Up / Down buttons
     const knob = el('span', { className: 'knob' }), pad = el('div', { className: 'stick', 'aria-hidden': 'true' }, knob);
-    pad.addEventListener('pointerdown', e => { origin = [e.clientX, e.clientY]; e.preventDefault(); });
+    pad.addEventListener('pointerdown', e => { id = e.pointerId; origin = [e.clientX, e.clientY]; e.preventDefault(); });
     const move = e => {
-      if (!origin) return;
+      if (!origin || e.pointerId !== id) return;
       stick.x = Math.max(-1, Math.min(1, (e.clientX - origin[0]) / 40));
       stick.y = Math.max(-1, Math.min(1, (e.clientY - origin[1]) / 40));
       knob.style.translate = `${stick.x * 30}px ${stick.y * 30}px`;
     };
-    const release = () => { origin = null; stick.x = stick.y = 0; knob.style.translate = ''; };
+    const release = e => { if (e.pointerId !== id) return; id = origin = null; stick.x = stick.y = 0; knob.style.translate = ''; };
     const hold = (label, dir) => {
       const b = el('button', { textContent: label });
       b.addEventListener('pointerdown', () => { vert = dir; });

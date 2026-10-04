@@ -8,7 +8,7 @@ export const ride = {
   start(ctx, target) {
     const { THREE, scene, getState, el, controls } = ctx, company = target.company;
     const V = a => new THREE.Vector3(a[0], a[1], a[2]);
-    let line, path, dist = 0, playing = true, speed = 1, free = false;
+    let line, path, dist = 0, playing = true, speed = 1, free = false, scrubbing = false;
     function build() { // (re)read the line; positions move when the companies shown change
       const keep = path?.length ? dist / path.length : 0;
       line = scene.lines().find(l => l.company === company);
@@ -27,6 +27,11 @@ export const ride = {
     slower.onclick = () => setSpeed(-1);
     faster.onclick = () => setSpeed(1);
     range.oninput = () => { dist = (range.value / 1000) * path.length; };
+    const lift = () => { scrubbing = false; }; // the thumb follows the ride except while a pointer holds it
+    range.addEventListener('pointerdown', () => { scrubbing = true; });
+    range.addEventListener('change', lift);
+    addEventListener('pointerup', lift);
+    addEventListener('pointercancel', lift);
     ahead.onclick = () => { free = false; };
     controls.replaceChildren(el('div', { className: 'ride' }, play, slower, rate, faster, range, ahead));
 
@@ -39,10 +44,11 @@ export const ride = {
         const eye = V(path.at(dist)), next = V(path.at(dist + 0.3));
         scene.camera.position.copy(eye);
         if (!free && next.distanceTo(eye) > 0.05) ctx.lookAt(next);
-        if (document.activeElement !== range) range.value = path.length ? Math.round((dist / path.length) * 1000) : 0;
+        if (!scrubbing) range.value = path.length ? Math.round((dist / path.length) * 1000) : 0;
         ctx.setTitle(passing());
       },
       looked() { free = true; },
+      stop() { removeEventListener('pointerup', lift); removeEventListener('pointercancel', lift); },
       valid: () => scene.lines().some(l => l.company === company && l.points.length > 1),
       refresh: build,
       link: () => ({ mode: 'ride', company }),
