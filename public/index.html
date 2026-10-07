@@ -152,7 +152,12 @@
   #loading.morph .dots i { animation: none; transform-origin: 50% 50%; } /* the flight scales about the centre; the hop squashed from the floor */
   #loading.morph .dots b::after, #loading.morph .msg { animation: none; opacity: 0; transition: opacity .2s; }
   @keyframes show { from { opacity: 0; transform: translateY(4px); } }
-  @media (prefers-reduced-motion: reduce) { #loading { transition: none; } #loading .dots i, #loading .dots b::after, #loading .msg { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { /* no hopping, but still visibly busy: a wave of brightness instead (still dots read as frozen) */
+    #loading .dots i { animation: glow 1.2s var(--d, 0s) ease-in-out infinite; }
+    #loading .dots b::after { display: none; }
+    #loading .msg { animation: none; }
+  }
+  @keyframes glow { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
   #empty button { pointer-events: auto; }
   .btn { border: 0; border-radius: 999px; padding: 8px 18px; background: var(--signal); color: #fff; font-weight: 600; cursor: pointer; }
 

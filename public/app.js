@@ -421,8 +421,8 @@ function morph(cover) {
   const marks = [...document.querySelectorAll(mq.matches ? '#peekKey .ax-mark' : `#m-${question} .ax-mark`)];
   const landable = marks.length === 3 && marks.every(m => { const r = m.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight; });
   if (reduced.matches || sv?.active() || !landable) {
-    cover.classList.add('done');
-    return new Promise(s => setTimeout(s, reduced.matches ? 0 : 300));
+    cover.classList.add('done'); // a plain fade: no movement, so fine with reduced motion too
+    return new Promise(s => setTimeout(s, 300));
   }
   const from = balls.map(b => b.getBoundingClientRect()); // mid-hop, where the eye last saw them
   cover.classList.add('morph'); // stops the hop; shadows and text fade
