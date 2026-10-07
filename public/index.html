@@ -129,7 +129,11 @@
 
   /* ---------- model and company details: a popover that grows out of what was clicked (desktop), a sheet (phone) ---------- */
   #card { position: absolute; z-index: 9; width: 300px; max-height: calc(100% - 24px); overflow: auto; padding: 16px 16px 12px; border-radius: 16px; }
-  #card .grabber { display: none; }
+  @media (min-width: 700px) { /* a strip along the top drags it, marked with a pill like the phone sheet's grabber */
+    #card .grabber { position: absolute; top: 0; left: 0; right: 0; height: 16px; cursor: grab; touch-action: none; }
+    #card .grabber::before { content: ""; position: absolute; top: 6px; left: calc(50% - 18px); width: 36px; height: 5px; border-radius: 3px; background: var(--fill-strong); }
+    #card.dragging, #card.dragging .grabber { cursor: grabbing; }
+  }
   #card h3 { margin: 0 34px 2px 0; font-size: 19px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; }
   #card .who { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--slate); font-size: 13px; }
   #card .who a, #card .who button { padding: 0; border: 0; background: none; color: var(--signal); text-decoration: none; cursor: pointer; }

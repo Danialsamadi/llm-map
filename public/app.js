@@ -210,6 +210,8 @@ function emptyState(n) {
 }
 
 // ---------- details card: a popover that grows out of what was clicked; a sheet on phones ----------
+let moved = false, drag = null; // desktop: dragged by hand since it opened; the drag in progress
+
 // (ax, ay): the point it grows out of on desktop; leave them out to keep it where it is
 function openCard(kids, ax, ay) {
   const card = $('card');
@@ -225,16 +227,22 @@ function openCard(kids, ax, ay) {
     else { cardSheet.reset(); cardSheet.open(0); } // rises from the bottom on a spring
     return;
   }
-  // desktop popover: beside the anchor, inside the open area, scaling out from the anchor itself
-  const w = card.offsetWidth, h = card.offsetHeight, minX = $('rail').getBoundingClientRect().right + 12, stay = ax == null;
-  let left = stay ? card.offsetLeft : ax + 20 + w > innerWidth - 12 ? ax - 20 - w : ax + 20;
-  left = Math.max(minX, Math.min(left, innerWidth - 12 - w));
-  const top = Math.max(12, Math.min(stay ? card.offsetTop : ay - 44, innerHeight - 12 - h));
-  Object.assign(card.style, { left: left + 'px', top: top + 'px' });
+  // desktop popover: beside the anchor, inside the open area, scaling out from the anchor itself; once dragged, it stays put
+  const w = card.offsetWidth, stay = ax == null || moved;
+  const { left, top } = placeCard(stay ? card.offsetLeft : ax + 20 + w > innerWidth - 12 ? ax - 20 - w : ax + 20, stay ? card.offsetTop : ay - 44);
   if (!stay) card.style.transformOrigin = `${ax - left}px ${ay - top}px`;
   if (!wasOpen) card.animate(reduced.matches ? [{ opacity: 0 }, { opacity: 1 }]
     : [{ opacity: 0, transform: 'scale(.6)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
   { duration: reduced.matches ? 150 : 260, easing: 'cubic-bezier(.2, .9, .25, 1)' });
+}
+
+// desktop: inside the window and right of the rail
+function placeCard(left, top) {
+  const card = $('card'), minX = $('rail').getBoundingClientRect().right + 12;
+  left = Math.max(minX, Math.min(left, innerWidth - 12 - card.offsetWidth));
+  top = Math.max(12, Math.min(top, innerHeight - 12 - card.offsetHeight));
+  Object.assign(card.style, { left: left + 'px', top: top + 'px' });
+  return { left, top };
 }
 
 function showCard(i) {
@@ -274,7 +282,8 @@ function hideCard({ instant = false } = {}) {
   selected = null; refocus();
   const card = $('card');
   if (card.hidden) return;
-  const done = () => { card.hidden = true; cardSheet.reset(); };
+  moved = false; // reopened while closing: beside its anchor again
+  const done = () => { card.hidden = true; cardSheet.reset(); moved = false; drop(); };
   if (instant) return done();
   if (mq.matches) return cardSheet.close(done);
   hiding = card.animate(reduced.matches ? [{ opacity: 1 }, { opacity: 0 }]
@@ -282,6 +291,26 @@ function hideCard({ instant = false } = {}) {
   { duration: reduced.matches ? 120 : 180, easing: 'cubic-bezier(.4, 0, 1, 1)' });
   hiding.onfinish = () => { hiding = null; done(); };
 }
+
+// desktop: drag the card by its top strip (on phones cardSheet drags it)
+const drop = () => { drag = null; $('card').classList.remove('dragging'); };
+$('card').addEventListener('pointerdown', e => {
+  if (mq.matches || e.button > 0 || !e.target.closest('.grabber')) return;
+  const card = $('card');
+  e.preventDefault(); // no text selection
+  try { card.setPointerCapture(e.pointerId); } catch {} // on the card: the grabber is replaced when the content changes
+  drag = { id: e.pointerId, dx: e.clientX - card.offsetLeft, dy: e.clientY - card.offsetTop };
+  card.classList.add('dragging');
+});
+$('card').addEventListener('pointermove', e => {
+  if (drag?.id !== e.pointerId) return;
+  if (!e.buttons) return drop(); // its pointerup went missing, e.g. released outside the window
+  moved = true;
+  $('card').style.transformOrigin = ''; // far from its dot now: close by shrinking in place
+  placeCard(e.clientX - drag.dx, e.clientY - drag.dy);
+});
+$('card').addEventListener('pointerup', drop);
+$('card').addEventListener('pointercancel', drop);
 
 // ---------- state <-> link ----------
 // #x=..&y=..&z=..&c=Company&c=Company[&sv=stand&m=Model | &sv=ride&r=Company | &sv=fly]
