@@ -78,6 +78,27 @@ export function compare(axes, from, to) {
   return diffs.map(({ k, d }) => (Math.abs(d) > 0.4 ? 'much ' : 'a bit ') + WORDS[k][d > 0 ? 0 : 1]).join(', ');
 }
 
+// Share (0-100) of the models measured on k that model m beats, in k's better direction; ties don't count. null if m has no value.
+export function percentile(models, m, k) {
+  if (m[k] == null) return null;
+  const s = betterSign(k), xs = models.filter(o => o[k] != null);
+  return Math.round((100 * xs.filter(o => s * o[k] < s * m[k]).length) / xs.length);
+}
+export const rankWord = p => (p >= 90 ? `Top ${Math.max(1, 100 - p)}%` : p >= 60 ? 'Above average' : p >= 40 ? 'Average' : 'Below average');
+
+const TOP_WORD = { intelligence: 'smartest', speed: 'fastest', cost: 'cheapest-to-run', price: 'lowest-priced' };
+// A model's standout measures in plain words. ranks: [key, display name, percentile | null], in display order.
+export function verdict(ranks) {
+  const band = (lo, hi) => ranks.filter(([, , p]) => p != null && p >= lo && p < hi);
+  const words = rs => rs.map(([, n]) => (n === n.toUpperCase() ? n : n.toLowerCase())); // keep ARC-AGI-2 as is
+  const list = xs => (xs.length < 2 ? xs[0] : xs.slice(0, -1).join(', ') + ' and ' + xs.at(-1));
+  const best = band(90, Infinity).sort((a, b) => b[2] - a[2]).slice(0, 2).map(([k]) => k), adj = best.filter(k => k !== 'agi').map(k => TOP_WORD[k]);
+  const top = [adj.length && `one of the ${adj.join(' and ')} models`, best.includes('agi') && 'among the best at ARC-AGI-2'].filter(Boolean).join(', and ');
+  const good = band(60, 90), weak = band(-Infinity, 40);
+  return [top && top[0].toUpperCase() + top.slice(1) + '.', good.length && `Above average on ${list(words(good))}.`, weak.length && `Below average on ${list(words(weak))}.`]
+    .filter(Boolean).join(' ') || 'About average across the board.';
+}
+
 // A polyline through points, walked by distance along it.
 export function makePath(points) {
   const cum = [0];

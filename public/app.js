@@ -1,6 +1,6 @@
 // Page logic: data, questions, companies, details card, About dialog and the link. The 3D view is scene.js.
 import { createScene } from './scene.js';
-import { readSV, writeSV, FLY_START } from './space.js';
+import { readSV, writeSV, FLY_START, percentile, rankWord, verdict } from './space.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
 import { COMPANIES, companyFacts } from './companies.js';
@@ -8,8 +8,8 @@ import { COMPANIES, companyFacts } from './companies.js';
 const MEASURES = {
   intelligence: { name: 'Smartness', axis: 'Smartness (AA index)', better: 'higher is better', about: 'Artificial Analysis Intelligence Index: one score from tests of reasoning, coding and knowledge.', fmt: v => v.toFixed(1) },
   cost: { name: 'Cost per task', axis: 'Cost per task ($)', log: true, better: 'lower is better', about: 'What it cost to run one question of that benchmark, in US dollars.', fmt: v => money(v) },
-  price: { name: 'Price', axis: 'Price ($ per 1M tokens)', log: true, better: 'lower is better', about: 'API price per million tokens, blending 3 parts input to 1 part output.', fmt: v => money(v) + ' per 1M tokens' },
-  speed: { name: 'Speed', axis: 'Speed (tokens/s)', better: 'higher is better', about: 'How many tokens per second the model writes.', fmt: v => Math.round(v) + ' tokens/s' },
+  price: { name: 'Price', axis: 'Price ($ per 1M tokens)', log: true, better: 'lower is better', about: 'API price per million tokens, blending 3 parts input to 1 part output.', fmt: v => money(v) + ' per 1M tokens', tile: 'Price per 1M tokens', short: v => money(v) },
+  speed: { name: 'Speed', axis: 'Speed (tokens/s)', better: 'higher is better', about: 'How many tokens per second the model writes.', fmt: v => Math.round(v) + ' tokens/s', short: v => Math.round(v) + ' tok/s' },
   agi: { name: 'ARC-AGI-2', axis: 'ARC-AGI-2 (% solved)', better: 'higher is better', about: 'Share of ARC-AGI-2 puzzles solved. They are easy for people and hard for AI.', fmt: v => v.toFixed(1) + '%' },
   release: { name: 'Release date', axis: 'Release date', date: true, better: 'newest at the far end', about: 'When the model came out.', fmt: v => new Date(v + 'T00:00:00Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }) },
 };
@@ -250,15 +250,21 @@ function showCard(i) {
   if (i == null) return;
   selected = i; refocus();
   const m = data.models[i];
-  const rows = Object.entries(MEASURES).filter(([k]) => k !== 'release').map(([k, ms]) => el('div', { className: 'row' },
-    el('dt', { textContent: ms.name }),
-    m[k] == null ? el('dd', { className: 'none', textContent: 'Not measured' }) : el('dd', {}, ms.fmt(m[k]), el('small', { textContent: ms.better }))));
+  const ranks = Object.keys(MEASURES).filter(k => k !== 'release').map(k => [k, MEASURES[k].name, percentile(data.models, m, k)]);
+  const tiles = ranks.map(([k, , p]) => {
+    const ms = MEASURES[k], label = el('span', { className: 'lab', textContent: ms.tile ?? ms.name });
+    if (p == null) return el('div', { className: 'tile' }, label, el('span', { className: 'none', textContent: 'Not measured' }));
+    const fill = el('i'), ax = axes.indexOf(k); // on the chart now: the bar takes that axis's colour
+    Object.assign(fill.style, { width: p + '%', background: ax < 0 ? 'var(--slate)' : `var(--ax-${ax})` });
+    return el('div', { className: 'tile' }, label, el('span', { className: 'big', textContent: (ms.short ?? ms.fmt)(m[k]) }), el('span', { className: 'bar' }, fill),
+      el('span', { className: 'badge ' + (p >= 60 ? 'good' : p >= 40 ? 'mid' : 'low'), textContent: rankWord(p) }));
+  });
   const co = el('button', { 'aria-label': 'About ' + m.company, textContent: m.company });
   co.onclick = () => showCompany(m.company);
   const p = scene.worldOf(i)?.clone().project(scene.camera); // grows out of the dot
   openCard([el('h3', { textContent: m.name }),
     el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [', released ' + MEASURES.release.fmt(m.release)] : []))),
-    el('dl', {}, ...rows)],
+    el('p', { className: 'verdict', textContent: verdict(ranks) }), el('div', { className: 'tiles' }, ...tiles)],
   p ? ((p.x + 1) / 2) * innerWidth : innerWidth - 40, p ? ((1 - p.y) / 2) * innerHeight : innerHeight - 40);
 }
 
