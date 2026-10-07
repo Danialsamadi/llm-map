@@ -1,7 +1,7 @@
 // The 3D chart: cube, grid, labels, dots, lines, orbit controls, picking and camera glides.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { layout, ticks, segDist } from './space.js';
+import { layout, ticks, segDist, emphasis } from './space.js';
 
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 // measure axes X, Y, Z -> world: X right, Z up, Y into the screen (keeps the old chart's right-handed look)
@@ -56,7 +56,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   const frame = new THREE.Group(), data = new THREE.Group(), overlay = new THREE.Group();
   scene.add(frame, data, overlay);
 
-  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, grown = null, last = null, builtK = 1;
+  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, drop = null, last = null, builtK = 1;
   const subs = new Set(), bufSize = new THREE.Vector2();
   const maxPointPx = renderer.getContext().getParameter(renderer.getContext().ALIASED_POINT_SIZE_RANGE)[1];
 
@@ -164,7 +164,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
       const geo = new THREE.BufferGeometry(), c = new THREE.Color();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(visible.flatMap(j => world.get(j).toArray()), 3));
       geo.setAttribute('aColor', new THREE.Float32BufferAttribute(visible.flatMap(j => c.set(colors.get(models[j].company)).toArray()), 3));
-      geo.setAttribute('aScale', new THREE.Float32BufferAttribute(new Float32Array(visible.length).fill(1), 1));
+      geo.setAttribute('aScale', new THREE.Float32BufferAttribute(new Float32Array(visible.length), 1)); // paint() fills it
       dots = new THREE.Points(geo, dotMaterial(maxPointPx));
       data.add(dots);
     }
@@ -172,13 +172,22 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
       const ordered = [...js].sort((a, b) => (models[a].release ?? '').localeCompare(models[b].release ?? ''));
       const points = ordered.map(j => world.get(j));
       const obj = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
-        new THREE.LineBasicMaterial({ color: colors.get(company), transparent: true, opacity: 0.9 }));
+        new THREE.LineBasicMaterial({ color: colors.get(company), transparent: true }));
       data.add(obj);
       return { company, models: ordered, points, obj };
     });
     buildFrame(scales, titles);
     state = { visible, pos, world, lines };
-    grown = null; ring = null; clear(overlay);
+    ring = null; clear(overlay);
+    paint();
+  }
+
+  // dot sizes and line opacities, as emphasis() decides
+  function paint() {
+    if (!state) return;
+    const e = emphasis(state.visible, state.lines.map(l => l.company), null, drop);
+    if (dots) { const a = dots.geometry.attributes.aScale; a.array.set(e.scale); a.needsUpdate = true; }
+    state.lines.forEach((l, i) => { l.obj.material.opacity = e.lines[i]; });
     render();
   }
 
@@ -222,23 +231,15 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   // ---------- drop preview ----------
   function preview(target) {
     if (!state) return;
-    const scaleDot = (j, s) => { const a = dots.geometry.attributes.aScale; a.setX(state.visible.indexOf(j), s); a.needsUpdate = true; };
-    if (grown != null && dots) scaleDot(grown, 1);
-    grown = null;
-    for (const l of state.lines) l.obj.material.opacity = 0.9;
+    drop = target ?? null;
     if (ring) { overlay.remove(ring); ring.geometry.dispose(); ring.material.dispose(); ring = null; }
-    if (target?.kind === 'dot' && dots) {
-      scaleDot(target.index, 2.2);
-      grown = target.index;
-    }
-    if (target?.kind === 'line') for (const l of state.lines) l.obj.material.opacity = l.company === target.company ? 1 : 0.15;
     if (target?.kind === 'floor') {
       ring = new THREE.Mesh(new THREE.RingGeometry(0.06, 0.09, 40), new THREE.MeshBasicMaterial({ color: css('--signal'), side: THREE.DoubleSide }));
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(target.point.x, -0.995, target.point.z);
       overlay.add(ring);
     }
-    render();
+    paint();
   }
 
   // ---------- camera glide (ease in-out); a new glide replaces a running one ----------

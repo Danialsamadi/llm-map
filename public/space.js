@@ -100,6 +100,20 @@ export function segDist(px, py, ax, ay, bx, by) {
   return Math.hypot(px - ax - t * dx, py - ay - t * dy);
 }
 
+export const FADE = 0.18, FADE_LINE = 0.08; // dot and line opacity while another dot is focused
+
+// How each visible dot and each company line is drawn. A Street View drop preview wins over focus.
+// visible: model indices on the chart; lineCompanies: company per line, in line order;
+// focus: model index or null; drop: null | { kind: 'dot', index } | { kind: 'line', company } | { kind: 'floor', point }
+export function emphasis(visible, lineCompanies, focus, drop) {
+  const on = !drop && focus != null && visible.includes(focus) ? focus : null;
+  return {
+    scale: visible.map(j => (drop?.kind === 'dot' && j === drop.index ? 2.2 : j === on ? 2.4 : 1)),
+    alpha: visible.map(j => (on == null || j === on ? 1 : FADE)),
+    lines: lineCompanies.map(c => (drop?.kind === 'line' ? (c === drop.company ? 1 : 0.15) : on != null ? FADE_LINE : 0.9)),
+  };
+}
+
 // Street View part of the link: sv=stand&m=<model> | sv=ride&r=<company> | sv=fly
 export function readSV(p) {
   const sv = p.get('sv');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScale, ticks, layout, nearest, compare, BETTER, betterSign, makePath, segDist, readSV, writeSV } from '../public/space.js';
+import { makeScale, ticks, layout, nearest, compare, BETTER, betterSign, makePath, segDist, readSV, writeSV, emphasis } from '../public/space.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -85,6 +85,23 @@ test('distance from a point to a screen segment', () => {
   assert.equal(segDist(0, 1, 0, 0, 2, 0), 1);
   assert.equal(segDist(3, 0, 0, 0, 2, 0), 1);
   close(segDist(1, 1, 0, 0, 0, 0), Math.SQRT2);
+});
+
+test('a focused dot grows and everything else fades', () => {
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], 5, null), { scale: [1, 2.4, 1], alpha: [0.18, 1, 0.18], lines: [0.08, 0.08] });
+  assert.deepEqual(emphasis([0, 5], ['A'], 0, null).alpha, [1, 0.18]);
+});
+
+test('without a visible focus everything is drawn normally', () => {
+  const normal = { scale: [1, 1, 1], alpha: [1, 1, 1], lines: [0.9, 0.9] };
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], null, null), normal);
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], 4, null), normal);
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], 5, { kind: 'floor', point: { x: 0, y: -1, z: 0 } }), normal);
+});
+
+test('a Street View drop preview wins over focus', () => {
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], 5, { kind: 'line', company: 'B' }), { scale: [1, 1, 1], alpha: [1, 1, 1], lines: [0.15, 1] });
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], 5, { kind: 'dot', index: 7 }), { scale: [1, 1, 2.2], alpha: [1, 1, 1], lines: [0.9, 0.9] });
 });
 
 test('Street View links round-trip and ignore incomplete ones', () => {
