@@ -221,6 +221,7 @@ function openCard(kids, ax, ay) {
   hiding?.cancel(); hiding = null; // reopened while closing: keep it open
   const wasOpen = !card.hidden;
   card.hidden = false;
+  document.body.classList.add('card-on'); // phones: the card stands in for the rail, which fades out
   if (mq.matches) {
     card.style.left = card.style.top = card.style.transformOrigin = '';
     if (wasOpen) cardSheet.layout(); // new content: resize to it
@@ -273,7 +274,6 @@ function showCompany(co, from) {
   kids.push(el('p', { className: 'facts', textContent: `${f.count} ${f.count === 1 ? 'model' : 'models'}` + (f.newest ? ` · newest: ${f.newest.name}, ${MEASURES.release.fmt(f.newest.release)}` : '') }),
     el('dl', {}, ...rows));
   if (!from) return openCard(kids);
-  if (mq.matches) sheet.open(0); // the rail paints over the card (it's outside #stage): lower it to its peek first, like Maps
   const r = from.getBoundingClientRect();
   openCard(kids, r.left + r.width / 2, r.top + r.height / 2);
 }
@@ -282,6 +282,7 @@ function hideCard({ instant = false } = {}) {
   selected = null; refocus();
   const card = $('card');
   if (card.hidden) return;
+  document.body.classList.remove('card-on'); // the rail fades back while the card leaves
   moved = false; // reopened while closing: beside its anchor again
   const done = () => { card.hidden = true; cardSheet.reset(); moved = false; drop(); };
   if (instant) return done();

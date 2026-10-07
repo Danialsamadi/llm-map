@@ -223,9 +223,9 @@
     #rail[data-detent="top"] .body { overflow: auto; touch-action: pan-y; }
     .brand h1 { display: none; }
     .brand { order: 9; } /* status line at the end of the sheet */
-    body.sv-on #rail { opacity: 0; pointer-events: none; }
+    body.sv-on #rail, body.card-on #rail { opacity: 0; pointer-events: none; }
     #empty { inset: 0 0 var(--sheet, 140px) 0; }
-    #card { position: fixed; left: 0; right: 0; bottom: var(--sheet, 0px); width: auto; max-height: none; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; will-change: transform; } /* rests on the rail's peek, which paints above #stage */
+    #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; will-change: transform; }
     #card .grabber { display: block; margin-bottom: 12px; }
     #card dl { overflow: auto; }
     #svBar { left: 12px; right: 12px; flex-wrap: wrap; align-items: flex-start; }
