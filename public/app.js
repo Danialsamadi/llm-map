@@ -404,7 +404,18 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => data
 document.fonts?.ready.then(() => data && draw()); // redraw labels once fonts are ready
 addEventListener('hashchange', () => location.reload()); // a pasted link in an open tab; our own replaceState doesn't fire this
 
-load().then(d => { data = d; init(); }, () => {
-  $('empty').hidden = false;
-  $('empty').replaceChildren(el('p', { textContent: "The model data didn't load. Check your connection, then reload the page." }));
+// ---------- loading cover: up from the first paint until the chart, panel and font are ready, so the page appears whole ----------
+const nextFrame = () => new Promise(s => { requestAnimationFrame(() => s()); setTimeout(s, 200); }); // a hidden tab draws no frames
+async function reveal() {
+  await Promise.race([document.fonts?.ready, new Promise(s => setTimeout(s, 2500))]); // a slow font doesn't hold the page back
+  await nextFrame(); await nextFrame(); // the chart's first frame is on screen
+  const cover = $('loading');
+  cover.classList.add('done');
+  setTimeout(() => cover.remove(), reduced.matches ? 0 : 300);
+}
+
+load().then(d => { data = d; try { init(); } finally { reveal(); } }, () => {
+  const again = el('button', { className: 'btn', textContent: 'Reload' });
+  again.onclick = () => location.reload();
+  $('loading').replaceChildren(el('p', { textContent: "The model data didn't load. Check your connection, then reload the page." }), again);
 });

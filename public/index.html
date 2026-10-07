@@ -128,6 +128,18 @@
   #tip span { color: var(--slate); font-size: 12px; }
   #empty { position: absolute; inset: 0 0 0 var(--rail); display: grid; place-content: center; text-align: center; padding: 24px; color: var(--slate); pointer-events: none; }
   #empty p { margin: 0 0 12px; max-width: 34ch; }
+
+  /* ---------- loading cover: the page appears whole instead of piece by piece ---------- */
+  #loading { position: fixed; inset: 0; z-index: 50; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; background: var(--ground); color: var(--slate); text-align: center; transition: opacity .3s ease; }
+  #loading.done { opacity: 0; pointer-events: none; }
+  #loading p { margin: 0; max-width: 34ch; }
+  #loading .dots { display: flex; gap: 10px; }
+  #loading .dots i { width: 12px; height: 12px; border-radius: 50%; animation: pulse 1s ease-in-out infinite; }
+  #loading .dots i:nth-child(1) { background: var(--ax-0); }
+  #loading .dots i:nth-child(2) { background: var(--ax-1); animation-delay: .15s; }
+  #loading .dots i:nth-child(3) { background: var(--ax-2); animation-delay: .3s; }
+  @keyframes pulse { 0%, 100% { transform: scale(.6); opacity: .35; } 50% { transform: scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #loading { transition: none; } #loading .dots i { animation: none; opacity: .8; } }
   #empty button { pointer-events: auto; }
   .btn { border: 0; border-radius: 999px; padding: 8px 18px; background: var(--signal); color: #fff; font-weight: 600; cursor: pointer; }
 
@@ -252,6 +264,7 @@
 </style>
 </head>
 <body>
+<div id="loading" role="status"><div class="dots" aria-hidden="true"><i></i><i></i><i></i></div><span class="sr">Loading the LLM map</span></div>
 <main id="stage">
   <div id="chart" role="img" aria-label="3D chart of language models"></div>
   <div id="tags"></div>
