@@ -133,13 +133,23 @@
   #loading { position: fixed; inset: 0; z-index: 50; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; background: var(--ground); color: var(--slate); text-align: center; transition: opacity .3s ease; }
   #loading.done { opacity: 0; pointer-events: none; }
   #loading p { margin: 0; max-width: 34ch; }
-  #loading .dots { display: flex; gap: 10px; }
-  #loading .dots i { width: 12px; height: 12px; border-radius: 50%; animation: pulse 1s ease-in-out infinite; }
-  #loading .dots i:nth-child(1) { background: var(--ax-0); }
-  #loading .dots i:nth-child(2) { background: var(--ax-1); animation-delay: .15s; }
-  #loading .dots i:nth-child(3) { background: var(--ax-2); animation-delay: .3s; }
-  @keyframes pulse { 0%, 100% { transform: scale(.6); opacity: .35; } 50% { transform: scale(1); opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { #loading { transition: none; } #loading .dots i { animation: none; opacity: .8; } }
+  /* three balls in the axis colours hop in a wave: squash on landing, stretch in the air, shadow shrinking as they rise */
+  #loading .dots { display: flex; gap: 16px; padding-top: 32px; }
+  #loading .dots b { position: relative; width: 14px; height: 14px; --c: var(--ax-0); }
+  #loading .dots b:nth-child(2) { --c: var(--ax-1); --d: .14s; }
+  #loading .dots b:nth-child(3) { --c: var(--ax-2); --d: .28s; }
+  #loading .dots i { position: absolute; inset: 0; border-radius: 50%; background: var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 55%, transparent); transform-origin: 50% 100%; animation: hop 1.2s var(--d, 0s) infinite; }
+  #loading .dots b::after { content: ""; position: absolute; left: -2px; right: -2px; bottom: -8px; height: 4px; border-radius: 50%; background: var(--c); filter: blur(2px); animation: shade 1.2s var(--d, 0s) infinite; }
+  @keyframes hop {
+    0%, 100% { transform: translateY(0) scale(1.25, .75); }
+    15% { transform: translateY(0) scale(1); animation-timing-function: cubic-bezier(.2, .7, .4, 1); } /* rising: slows to the top */
+    50% { transform: translateY(-32px) scale(.94, 1.06); animation-timing-function: cubic-bezier(.6, 0, .8, .3); } /* falling: speeds up */
+    85% { transform: translateY(0) scale(1); }
+  }
+  @keyframes shade { 0%, 15%, 85%, 100% { transform: scaleX(1); opacity: .35; } 50% { transform: scaleX(.45); opacity: .1; } }
+  #loading .msg { font-size: 14px; animation: show .3s .4s both; } /* waits a beat: a fast load never flashes text */
+  @keyframes show { from { opacity: 0; transform: translateY(4px); } }
+  @media (prefers-reduced-motion: reduce) { #loading { transition: none; } #loading .dots i, #loading .dots b::after, #loading .msg { animation: none; } }
   #empty button { pointer-events: auto; }
   .btn { border: 0; border-radius: 999px; padding: 8px 18px; background: var(--signal); color: #fff; font-weight: 600; cursor: pointer; }
 
@@ -264,7 +274,7 @@
 </style>
 </head>
 <body>
-<div id="loading" role="status"><div class="dots" aria-hidden="true"><i></i><i></i><i></i></div><span class="sr">Loading the LLM map</span></div>
+<div id="loading" role="status"><div class="dots" aria-hidden="true"><b><i></i></b><b><i></i></b><b><i></i></b></div><p class="msg" id="loadMsg">Loading the 3D engine…</p></div>
 <main id="stage">
   <div id="chart" role="img" aria-label="3D chart of language models"></div>
   <div id="tags"></div>

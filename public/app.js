@@ -414,7 +414,8 @@ async function reveal() {
   setTimeout(() => cover.remove(), reduced.matches ? 0 : 300);
 }
 
-load().then(d => { data = d; try { init(); } finally { reveal(); } }, () => {
+$('loadMsg').textContent = 'Loading the models…'; // this module only runs once three.js has arrived
+load().then(d => { data = d; $('loadMsg').textContent = 'Drawing the chart…'; try { init(); } finally { reveal(); } }, () => {
   const again = el('button', { className: 'btn', textContent: 'Reload' });
   again.onclick = () => location.reload();
   $('loading').replaceChildren(el('p', { textContent: "The model data didn't load. Check your connection, then reload the page." }), again);
