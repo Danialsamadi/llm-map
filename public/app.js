@@ -3,6 +3,7 @@ import { createScene } from './scene.js';
 import { readSV, writeSV, FLY_START } from './space.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
+import { COMPANIES, companyFacts } from './companies.js';
 
 const MEASURES = {
   intelligence: { name: 'Smartness', axis: 'Smartness (AA index)', better: 'higher is better', about: 'Artificial Analysis Intelligence Index: one score from tests of reasoning, coding and knowledge.', fmt: v => v.toFixed(1) },
@@ -140,9 +141,11 @@ function renderPicker() {
     const name = el('span', { className: 'name' }, co);
     const row = el('label', { className: 'co' }, cb, dot(co), name, el('span', { className: 'n', textContent: totals.get(co) }), icon(check));
     row.lastChild.classList.add('check');
-    $('cos-list').append(row);
+    const info = el('button', { className: 'info', 'aria-label': 'About ' + co }, icon('M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18zM12 11v5M12 7.5h.01'));
+    info.onclick = () => showCompany(co, info);
+    $('cos-list').append(el('div', { className: 'co-row' }, row, info)); // the button sits beside the label: inside it, it would join the checkbox's name
   }
-  $('q').oninput = () => { const q = $('q').value.toLowerCase(); for (const [co, cb] of boxes) cb.parentNode.hidden = !co.toLowerCase().includes(q); };
+  $('q').oninput = () => { const q = $('q').value.toLowerCase(); for (const [co, cb] of boxes) cb.closest('.co-row').hidden = !co.toLowerCase().includes(q); };
   for (const b of document.querySelectorAll('.seg button')) b.onclick = () => {
     picked = new Set(b.dataset.pick === 'all' ? names : b.dataset.pick === 'top' ? names.slice(0, TOP) : []);
     change();
@@ -201,38 +204,63 @@ function emptyState(n) {
   }
 }
 
-// ---------- model details: a popover that grows out of the dot it belongs to; a sheet on phones ----------
-function showCard(i) {
-  if (i == null) return;
-  const m = data.models[i], card = $('card');
+// ---------- details card: a popover that grows out of what was clicked; a sheet on phones ----------
+// (ax, ay): the point it grows out of on desktop; leave them out to keep it where it is
+function openCard(kids, ax, ay) {
+  const card = $('card');
   const close = el('button', { id: 'close', 'aria-label': 'Close details' }, icon('M6 6l12 12M18 6L6 18'));
   close.onclick = () => hideCard();
-  const rows = Object.entries(MEASURES).filter(([k]) => k !== 'release').map(([k, ms]) => el('div', { className: 'row' },
-    el('dt', { textContent: ms.name }),
-    m[k] == null ? el('dd', { className: 'none', textContent: 'Not measured' }) : el('dd', {}, ms.fmt(m[k]), el('small', { textContent: ms.better }))));
-  card.replaceChildren(el('div', { className: 'grabber' }), close, el('h3', { textContent: m.name }),
-    el('p', { className: 'who' }, dot(m.company), el('span', { textContent: m.company + (m.release ? ', released ' + MEASURES.release.fmt(m.release) : '') })),
-    el('dl', {}, ...rows));
+  card.replaceChildren(el('div', { className: 'grabber' }), close, ...kids);
   hiding?.cancel(); hiding = null; // reopened while closing: keep it open
   const wasOpen = !card.hidden;
   card.hidden = false;
   if (mq.matches) {
     card.style.left = card.style.top = card.style.transformOrigin = '';
-    if (wasOpen) cardSheet.layout(); // another dot: resize to the new content
+    if (wasOpen) cardSheet.layout(); // new content: resize to it
     else { cardSheet.reset(); cardSheet.open(0); } // rises from the bottom on a spring
     return;
   }
-  // desktop popover: beside the dot, inside the open area, scaling out from the dot itself
-  const p = scene.worldOf(i)?.clone().project(scene.camera);
-  const ax = p ? ((p.x + 1) / 2) * innerWidth : innerWidth - 40, ay = p ? ((1 - p.y) / 2) * innerHeight : innerHeight - 40;
-  const w = card.offsetWidth, h = card.offsetHeight, minX = $('rail').getBoundingClientRect().right + 12;
-  let left = ax + 20 + w > innerWidth - 12 ? ax - 20 - w : ax + 20;
+  // desktop popover: beside the anchor, inside the open area, scaling out from the anchor itself
+  const w = card.offsetWidth, h = card.offsetHeight, minX = $('rail').getBoundingClientRect().right + 12, stay = ax == null;
+  let left = stay ? card.offsetLeft : ax + 20 + w > innerWidth - 12 ? ax - 20 - w : ax + 20;
   left = Math.max(minX, Math.min(left, innerWidth - 12 - w));
-  const top = Math.max(12, Math.min(ay - 44, innerHeight - 12 - h));
-  Object.assign(card.style, { left: left + 'px', top: top + 'px', transformOrigin: `${ax - left}px ${ay - top}px` });
+  const top = Math.max(12, Math.min(stay ? card.offsetTop : ay - 44, innerHeight - 12 - h));
+  Object.assign(card.style, { left: left + 'px', top: top + 'px' });
+  if (!stay) card.style.transformOrigin = `${ax - left}px ${ay - top}px`;
   if (!wasOpen) card.animate(reduced.matches ? [{ opacity: 0 }, { opacity: 1 }]
     : [{ opacity: 0, transform: 'scale(.6)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
   { duration: reduced.matches ? 150 : 260, easing: 'cubic-bezier(.2, .9, .25, 1)' });
+}
+
+function showCard(i) {
+  if (i == null) return;
+  const m = data.models[i];
+  const rows = Object.entries(MEASURES).filter(([k]) => k !== 'release').map(([k, ms]) => el('div', { className: 'row' },
+    el('dt', { textContent: ms.name }),
+    m[k] == null ? el('dd', { className: 'none', textContent: 'Not measured' }) : el('dd', {}, ms.fmt(m[k]), el('small', { textContent: ms.better }))));
+  const co = el('button', { 'aria-label': 'About ' + m.company, textContent: m.company });
+  co.onclick = () => showCompany(m.company);
+  const p = scene.worldOf(i)?.clone().project(scene.camera); // grows out of the dot
+  openCard([el('h3', { textContent: m.name }),
+    el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [', released ' + MEASURES.release.fmt(m.release)] : []))),
+    el('dl', {}, ...rows)],
+  p ? ((p.x + 1) / 2) * innerWidth : innerWidth - 40, p ? ((1 - p.y) / 2) * innerHeight : innerHeight - 40);
+}
+
+// from: the ⓘ button in the company list; left out when switching from a model's card, which then stays put
+function showCompany(co, from) {
+  const f = companyFacts(data.models, co, Object.keys(MEASURES).filter(k => k !== 'release')), c = COMPANIES[co];
+  const rows = f.best.map(({ key, model }) => el('div', { className: 'row' },
+    el('dt', { textContent: MEASURES[key].name }), el('dd', {}, model.name, el('small', { textContent: MEASURES[key].fmt(model[key]) }))));
+  const kids = [el('h3', { textContent: co })];
+  if (c) kids.push(el('p', { className: 'who' }, dot(co), el('a', { href: c.url, target: '_blank', rel: 'noopener', textContent: new URL(c.url).hostname.replace(/^www\./, '') + ' ↗' })),
+    el('p', { textContent: c.about }));
+  kids.push(el('p', { className: 'facts', textContent: `${f.count} ${f.count === 1 ? 'model' : 'models'}` + (f.newest ? ` · newest: ${f.newest.name}, ${MEASURES.release.fmt(f.newest.release)}` : '') }),
+    el('dl', {}, ...rows));
+  if (!from) return openCard(kids);
+  if (mq.matches) sheet.open(0); // the rail paints over the card (it's outside #stage): lower it to its peek first, like Maps
+  const r = from.getBoundingClientRect();
+  openCard(kids, r.left + r.width / 2, r.top + r.height / 2);
 }
 
 function hideCard({ instant = false } = {}) {

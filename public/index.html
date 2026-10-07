@@ -95,7 +95,8 @@
   .seg button[aria-pressed="true"] { background: var(--panel); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / .12), 0 0 0 .5px var(--hair); }
   #q { width: calc(100% - 4px); margin: 0 2px 6px; padding: 7px 10px; border: 0; border-radius: 9px; background: var(--fill); }
   #q::placeholder { color: var(--slate); }
-  .co { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
+  .co-row { display: flex; gap: 2px; }
+  .co { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
   .co:hover { background: var(--fill); }
   .co:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--signal) 55%, transparent); }
   .co .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -103,6 +104,9 @@
   .co .n { color: var(--slate); font-size: 13px; font-variant-numeric: tabular-nums; }
   .co .check { width: 16px; height: 16px; color: var(--ink); opacity: 0; transition: opacity .15s; }
   .co:has(input:checked) .check { opacity: 1; }
+  .info { flex: none; width: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 9px; background: none; color: var(--slate); cursor: pointer; }
+  .info:hover { background: var(--fill); }
+  .info svg { width: 18px; height: 18px; stroke-width: 2; }
   .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
 
   /* ---------- right-hand control stack, like Maps ---------- */
@@ -123,11 +127,15 @@
   #empty button { pointer-events: auto; }
   .btn { border: 0; border-radius: 999px; padding: 8px 18px; background: var(--signal); color: #fff; font-weight: 600; cursor: pointer; }
 
-  /* ---------- model details: a popover that grows out of the dot (desktop), a sheet (phone) ---------- */
+  /* ---------- model and company details: a popover that grows out of what was clicked (desktop), a sheet (phone) ---------- */
   #card { position: absolute; z-index: 9; width: 300px; max-height: calc(100% - 24px); overflow: auto; padding: 16px 16px 12px; border-radius: 16px; }
   #card .grabber { display: none; }
   #card h3 { margin: 0 34px 2px 0; font-size: 19px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; }
   #card .who { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--slate); font-size: 13px; }
+  #card .who a, #card .who button { padding: 0; border: 0; background: none; color: var(--signal); text-decoration: none; cursor: pointer; }
+  #card .who a:hover, #card .who button:hover { text-decoration: underline; }
+  #card p { margin: 0 0 8px; }
+  #card .facts { margin-bottom: 12px; color: var(--slate); font-size: 13px; }
   #card dl { margin: 0; }
   #card .row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: .5px solid var(--rule); }
   #card dt { color: var(--slate); }
@@ -207,7 +215,7 @@
     .brand { order: 9; } /* status line at the end of the sheet */
     body.sv-on #rail { opacity: 0; pointer-events: none; }
     #empty { inset: 0 0 var(--sheet, 140px) 0; }
-    #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; will-change: transform; }
+    #card { position: fixed; left: 0; right: 0; bottom: var(--sheet, 0px); width: auto; max-height: none; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; will-change: transform; } /* rests on the rail's peek, which paints above #stage */
     #card .grabber { display: block; margin-bottom: 12px; }
     #card dl { overflow: auto; }
     #svBar { left: 12px; right: 12px; flex-wrap: wrap; align-items: flex-start; }
