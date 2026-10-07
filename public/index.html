@@ -211,6 +211,7 @@
   @media (max-width: 699px) {
     :root { --rail: 12px; }
     #rail { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 50dvh; border-radius: 16px 16px 0 0; will-change: transform; transition: opacity .2s ease; }
+    #rail:not([data-detent]) { transform: translateY(100%); } /* until app.js places it (after three.js and the data load): off screen, not half open and empty */
     .grip { display: block; padding: 6px 16px max(14px, env(safe-area-inset-bottom)); cursor: grab; touch-action: none; } /* peek clears the home indicator */
     .grabber { display: block; width: 36px; height: 5px; margin: 0 auto 10px; padding: 0; border: 0; border-radius: 3px; background: var(--fill-strong); cursor: pointer; }
     .grabber::after { content: ""; position: absolute; inset: -12px -40px; } /* bigger touch target than it looks */
