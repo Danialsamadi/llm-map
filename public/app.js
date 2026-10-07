@@ -409,9 +409,31 @@ const nextFrame = () => new Promise(s => { requestAnimationFrame(() => s()); set
 async function reveal() {
   await Promise.race([document.fonts?.ready, new Promise(s => setTimeout(s, 2500))]); // a slow font doesn't hold the page back
   await nextFrame(); await nextFrame(); // the chart's first frame is on screen
+  await new Promise(s => setTimeout(s, 1600 - performance.now())); // at least one full wave of the hopping balls, even on a fast load
   const cover = $('loading');
-  cover.classList.add('done');
-  setTimeout(() => cover.remove(), reduced.matches ? 0 : 300);
+  await Promise.race([morph(cover), new Promise(s => setTimeout(s, 1500))]); // a hidden tab may never finish animating
+  cover.remove();
+}
+
+// The cover morphs into the page: the three balls arc into the axis key's three dots (same colours) while the cover dissolves.
+function morph(cover) {
+  const balls = [...cover.querySelectorAll('.dots i')];
+  const marks = [...document.querySelectorAll(mq.matches ? '#peekKey .ax-mark' : `#m-${question} .ax-mark`)];
+  const landable = marks.length === 3 && marks.every(m => { const r = m.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight; });
+  if (reduced.matches || sv?.active() || !landable) {
+    cover.classList.add('done');
+    return new Promise(s => setTimeout(s, reduced.matches ? 0 : 300));
+  }
+  const from = balls.map(b => b.getBoundingClientRect()); // mid-hop, where the eye last saw them
+  cover.classList.add('morph'); // stops the hop; shadows and text fade
+  cover.animate([{ backgroundColor: getComputedStyle(cover).backgroundColor }, { backgroundColor: 'transparent' }], { duration: 450, easing: 'ease', fill: 'forwards' });
+  return Promise.all(balls.map((b, i) => {
+    const base = b.getBoundingClientRect(), to = marks[i].getBoundingClientRect(), f = from[i];
+    const at = (x, y, w) => `translate(${x - (base.left + base.width / 2)}px, ${y - (base.top + base.height / 2)}px) scale(${w / base.width})`;
+    const fx = f.left + f.width / 2, fy = f.top + f.height / 2, tx = to.left + to.width / 2, ty = to.top + to.height / 2;
+    return b.animate([{ transform: at(fx, fy, f.width) }, { transform: at((fx + tx) / 2, (fy + ty) / 2 - 48, (f.width + to.width) / 2), offset: 0.45 }, { transform: at(tx, ty, to.width) }],
+      { duration: 700, delay: i * 60, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' }).finished;
+  }));
 }
 
 $('loadMsg').textContent = 'Loading the models…'; // this module only runs once three.js has arrived
