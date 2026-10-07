@@ -11,26 +11,30 @@ const DOT_RADIUS = 0.024; // world units
 // Dots are round points whose edge coverage is computed exactly per pixel, with a little shading so they read
 // as balls. Mesh spheres relied on 4x multisampling, which left small far-away dots stair-stepped.
 const dotMaterial = maxPx => new THREE.ShaderMaterial({
-  uniforms: { uPxPerUnit: { value: 1 }, uMaxPx: { value: maxPx } },
+  uniforms: { uPxPerUnit: { value: 1 }, uMaxPx: { value: maxPx }, uLift: { value: false } },
   transparent: true,
   vertexShader: /* glsl */ `
     attribute vec3 aColor;
-    attribute float aScale;
+    attribute float aScale, aAlpha;
     uniform float uPxPerUnit, uMaxPx;
+    uniform bool uLift;
     varying vec3 vColor;
     varying float vRadius; // device pixels
+    varying float vAlpha;
     void main() {
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
       gl_Position = projectionMatrix * mv;
       vec4 front = projectionMatrix * vec4(mv.xy, mv.z + ${DOT_RADIUS} * aScale, 1.0);
       gl_Position.z = front.z / front.w * gl_Position.w; // depth of the ball's near surface, so lines into it stay hidden
+      if (uLift && aAlpha == 1.0) gl_Position.z = -0.999 * gl_Position.w; // the one unfaded dot: in front of everything, even nearer dots drawn first
       vRadius = min(${DOT_RADIUS} * aScale * uPxPerUnit / -mv.z, uMaxPx / 2.0 - 1.0);
       gl_PointSize = 2.0 * vRadius + 2.0; // a pixel of room on each side for the soft edge
       vColor = aColor;
+      vAlpha = aAlpha;
     }`,
   fragmentShader: /* glsl */ `
     varying vec3 vColor;
-    varying float vRadius;
+    varying float vRadius, vAlpha;
     void main() {
       vec2 p = (gl_PointCoord - 0.5) * (2.0 * vRadius + 2.0); // offset from the centre, device pixels
       float alpha = clamp(vRadius - length(p) + 0.5, 0.0, 1.0); // exact coverage of the edge pixel
@@ -38,7 +42,7 @@ const dotMaterial = maxPx => new THREE.ShaderMaterial({
       vec2 q = p / vRadius;
       vec3 n = vec3(q.x, -q.y, sqrt(max(0.0, 1.0 - dot(q, q))));
       float shade = 0.72 + 0.28 * max(dot(n, normalize(vec3(-0.35, 0.45, 0.8))), 0.0);
-      gl_FragColor = vec4(vColor * shade, alpha);
+      gl_FragColor = vec4(vColor * shade, alpha * vAlpha);
       #include <colorspace_fragment>
     }`,
 });
@@ -56,7 +60,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   const frame = new THREE.Group(), data = new THREE.Group(), overlay = new THREE.Group();
   scene.add(frame, data, overlay);
 
-  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, drop = null, last = null, builtK = 1;
+  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, drop = null, focus = null, last = null, builtK = 1;
   const subs = new Set(), bufSize = new THREE.Vector2();
   const maxPointPx = renderer.getContext().getParameter(renderer.getContext().ALIASED_POINT_SIZE_RANGE)[1];
 
@@ -164,7 +168,8 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
       const geo = new THREE.BufferGeometry(), c = new THREE.Color();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(visible.flatMap(j => world.get(j).toArray()), 3));
       geo.setAttribute('aColor', new THREE.Float32BufferAttribute(visible.flatMap(j => c.set(colors.get(models[j].company)).toArray()), 3));
-      geo.setAttribute('aScale', new THREE.Float32BufferAttribute(new Float32Array(visible.length), 1)); // paint() fills it
+      geo.setAttribute('aScale', new THREE.Float32BufferAttribute(new Float32Array(visible.length), 1)); // paint() fills these two
+      geo.setAttribute('aAlpha', new THREE.Float32BufferAttribute(new Float32Array(visible.length), 1));
       dots = new THREE.Points(geo, dotMaterial(maxPointPx));
       data.add(dots);
     }
@@ -182,11 +187,16 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     paint();
   }
 
-  // dot sizes and line opacities, as emphasis() decides
+  // dot sizes, dot fading and line opacities, as emphasis() decides
   function paint() {
     if (!state) return;
-    const e = emphasis(state.visible, state.lines.map(l => l.company), null, drop);
-    if (dots) { const a = dots.geometry.attributes.aScale; a.array.set(e.scale); a.needsUpdate = true; }
+    const e = emphasis(state.visible, state.lines.map(l => l.company), focus, drop);
+    if (dots) {
+      const { aScale, aAlpha } = dots.geometry.attributes;
+      aScale.array.set(e.scale); aAlpha.array.set(e.alpha);
+      aScale.needsUpdate = aAlpha.needsUpdate = true;
+      dots.material.uniforms.uLift.value = e.alpha.some(a => a < 1);
+    }
     state.lines.forEach((l, i) => { l.obj.material.opacity = e.lines[i]; });
     render();
   }
@@ -267,17 +277,21 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
 
   // ---------- hover and click on dots ----------
   let down = null;
-  canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; onHover(null); }); // a drag hides the hover label
+  canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; if (!controls.enabled) onHover(null); }); // Street View: a press hides the label, as before
   canvas.addEventListener('pointerup', e => {
     if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 6) onClick(pick(e.clientX, e.clientY, ['dot'])?.index ?? null, e);
     down = null;
   });
-  canvas.addEventListener('pointermove', e => { if (!e.buttons) onHover(pick(e.clientX, e.clientY, ['dot'])?.index ?? null, e.clientX, e.clientY); });
+  canvas.addEventListener('pointermove', e => {
+    if (!e.buttons) onHover(pick(e.clientX, e.clientY, ['dot'])?.index ?? null, e.clientX, e.clientY);
+    else if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) >= 6) onHover(null); // a drag hides the hover label; a click keeps it, so a focused dot doesn't blink
+  });
   canvas.addEventListener('pointerleave', () => onHover(null));
 
   resize();
   return {
     ok: true, camera, controls, canvas, render, onFrame, setData, pick, preview, animateCamera,
+    setFocus: j => { if (j === focus) return; focus = j; paint(); }, // model index or null
     setOrbit: on => { controls.enabled = on; },
     setInsets: ({ left = 0, bottom = 0 }) => {
       if (left === insets.left && bottom === insets.bottom) return;

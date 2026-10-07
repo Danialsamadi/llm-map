@@ -43,9 +43,10 @@ const kindOf = k => (MEASURES[k].log ? 'log' : MEASURES[k].date ? 'date' : 'line
 let data, names, totals, color, picked, axes, question, shownAxes, wantSV = null, hiding = null;
 const boxes = new Map(); // company -> its checkbox in the company list
 let sv = null; // Street View, once available
+let hovered = null, selected = null; // model under the pointer; model whose card is open
 
 const scene = createScene($('chart'), {
-  onHover: tip,
+  onHover: (i, x, y) => { hovered = i; refocus(); tip(i, x, y); },
   onClick: (i, e) => { if (sv?.handleTap(i, e)) return; if (i != null) showCard(i); else hideCard(); },
 });
 window.llmMap = { scene, get sv() { return sv; } }; // handle for console debugging and browser checks
@@ -63,11 +64,15 @@ const cardSheet = createSheet($('card'), {
   grip: '#card', enabled: () => mq.matches, onDismiss: () => hideCard({ instant: true }),
 });
 
+// the highlighted dot: the hovered one, else the selected one; none in Street View
+function refocus() { if (scene.ok) scene.setFocus(sv?.active() ? null : hovered ?? selected); }
+
 // keep the cube centred in the part of the screen the panels leave open
 function chrome() {
   const inside = !!sv?.active();
   document.body.classList.toggle('sv-on', inside);
   if (!scene.ok) return;
+  refocus();
   if (mq.matches) {
     document.documentElement.style.setProperty('--sheet', (inside ? 0 : sheetHeights()[0]) + 'px');
     scene.setInsets({ left: 0, bottom: inside ? 0 : sheetHeights()[0] }); // centred above the peek; like Maps, the chart stays put while the sheet moves
@@ -234,6 +239,7 @@ function openCard(kids, ax, ay) {
 
 function showCard(i) {
   if (i == null) return;
+  selected = i; refocus();
   const m = data.models[i];
   const rows = Object.entries(MEASURES).filter(([k]) => k !== 'release').map(([k, ms]) => el('div', { className: 'row' },
     el('dt', { textContent: ms.name }),
@@ -249,6 +255,7 @@ function showCard(i) {
 
 // from: the ⓘ button in the company list; left out when switching from a model's card, which then stays put
 function showCompany(co, from) {
+  selected = null; refocus();
   const f = companyFacts(data.models, co, Object.keys(MEASURES).filter(k => k !== 'release')), c = COMPANIES[co];
   const rows = f.best.map(({ key, model }) => el('div', { className: 'row' },
     el('dt', { textContent: MEASURES[key].name }), el('dd', {}, model.name, el('small', { textContent: MEASURES[key].fmt(model[key]) }))));
@@ -264,6 +271,7 @@ function showCompany(co, from) {
 }
 
 function hideCard({ instant = false } = {}) {
+  selected = null; refocus();
   const card = $('card');
   if (card.hidden) return;
   const done = () => { card.hidden = true; cardSheet.reset(); };
