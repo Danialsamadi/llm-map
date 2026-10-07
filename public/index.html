@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>LLM map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap">
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }</script>
 <style>
   /* The chart is the page; controls float over it on glass. Colour belongs to the data (companies, axes),
@@ -17,7 +20,7 @@
     --signal: #0071e3; --signal-soft: #e8f1fd;
     --ax-0: #2f6fde; --ax-1: #d98a00; --ax-2: #b8409a; /* X, Y, Z axis colours */
     --ax-1-text: #b87400; /* amber text needs more contrast on the light background */
-    --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font: "Bricolage Grotesque", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --rail: 324px; /* room the desktop sidebar takes on the left: 12 + 300 + 12 */
   }
   @media (prefers-color-scheme: dark) {
@@ -154,6 +157,7 @@
   dialog[open] { animation: arrive .28s cubic-bezier(.2, .9, .25, 1); }
   dialog h2 { font-size: 17px; font-weight: 700; color: var(--ink); margin: 20px 0 6px; letter-spacing: -0.02em; }
   dialog h2:first-of-type { margin-top: 0; font-size: 22px; letter-spacing: -0.022em; }
+  @media (max-width: 400px) { dialog h2:first-of-type { font-size: 21px; } } /* Bricolage runs wider: keeps the About title on one line beside Done on 375px phones */
   dialog p, dialog ul { margin: 0 0 8px; color: var(--slate); }
   dialog ul { padding-left: 18px; }
   dialog li { margin: 3px 0; }
