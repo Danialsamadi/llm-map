@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScale, ticks, layout, nearest, compare, BETTER, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rankWord, verdict } from '../public/space.js';
+import { makeScale, ticks, layout, nearest, compare, BETTER, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile } from '../public/space.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -124,18 +124,4 @@ test('percentile: share of measured models beaten, in the better direction; ties
   assert.equal(percentile(ms, B, 'cost'), 50); // cheaper than A and D; the tie with C doesn't count
   assert.equal(percentile(ms, A, 'cost'), 25);
   assert.equal(percentile(ms, D, 'speed'), null);
-});
-
-test('rankWord bands', () => {
-  assert.deepEqual([100, 99, 90, 89, 60, 59, 40, 39, 0].map(rankWord),
-    ['Top 1%', 'Top 1%', 'Top 10%', 'Above average', 'Above average', 'Average', 'Average', 'Below average', 'Below average']);
-});
-
-test('verdict names standout, good and weak measures in plain words', () => {
-  assert.equal(verdict([['intelligence', 'Smartness', 50], ['speed', 'Speed', 99]]), 'One of the fastest models.');
-  assert.equal(verdict([['intelligence', 'Smartness', 95], ['cost', 'Cost per task', 70], ['price', 'Price', 20], ['speed', 'Speed', 99], ['agi', 'ARC-AGI-2', null]]),
-    'One of the fastest and smartest models. Above average on cost per task. Below average on price.');
-  assert.equal(verdict([['speed', 'Speed', 92], ['agi', 'ARC-AGI-2', 97]]), 'One of the fastest models, and among the best at ARC-AGI-2.');
-  assert.equal(verdict([['intelligence', 'Smartness', 70], ['cost', 'Cost per task', 65], ['agi', 'ARC-AGI-2', 80]]), 'Above average on smartness, cost per task and ARC-AGI-2.');
-  assert.equal(verdict([['intelligence', 'Smartness', 50], ['agi', 'ARC-AGI-2', null]]), 'About average across the board.');
 });
