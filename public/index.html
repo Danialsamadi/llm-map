@@ -174,7 +174,7 @@
     #card .grabber::before { content: ""; position: absolute; top: 6px; left: calc(50% - 18px); width: 36px; height: 5px; border-radius: 3px; background: var(--fill-strong); }
     #card.dragging, #card.dragging .grabber { cursor: grabbing; }
   }
-  #card h3 { margin: 0 34px 2px 0; font-size: 19px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; }
+  #card h3 { margin: 0 0 2px; margin-inline-end: 34px; font-size: 19px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; }
   #card .who { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--slate); font-size: 13px; }
   #card .who a, #card .who button { padding: 0; border: 0; background: none; color: var(--signal); text-decoration: none; cursor: pointer; }
   #card .who a:hover, #card .who button:hover { text-decoration: underline; }
@@ -186,16 +186,17 @@
   #card dd { margin: 0; text-align: end; font-weight: 600; font-variant-numeric: tabular-nums; }
   #card dd small { display: block; font-weight: 400; color: var(--slate); font-size: 12px; letter-spacing: 0; }
   #card dd.none { font-weight: 400; color: var(--slate); }
-  #card .verdict { margin: 2px 0 14px; color: var(--ink); font-size: 17px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; }
-  #card .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  #card .tile { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 10px 12px; border-radius: 12px; background: var(--fill); }
-  #card .tile:last-child:nth-child(odd) { grid-column: span 2; }
-  #card .tile .lab { color: var(--slate); font-size: 12px; }
-  #card .tile .big { margin-top: 2px; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  #card .tile .none { margin-top: 4px; color: var(--slate); }
-  #card .bar { align-self: stretch; height: 6px; margin-top: 8px; border-radius: 3px; background: var(--fill-strong); overflow: hidden; }
+  #card .verdict { margin: 2px 0 12px; color: var(--ink); font-size: 16px; line-height: 1.35; font-weight: 600; letter-spacing: -0.01em; }
+  /* one row per measure, grouped like an inset list: label and value, then the rank bar and badge (the bars share one width) */
+  #card .stats { display: grid; grid-template-columns: 1fr auto; padding: 0 12px; border-radius: 12px; background: var(--fill); }
+  #card .stat { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; row-gap: 6px; column-gap: 12px; padding: 9px 0; }
+  #card .stat + .stat { border-top: .5px solid var(--rule); }
+  #card .stat .lab { color: var(--slate); font-size: 13px; }
+  #card .stat .big { justify-self: end; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #card .stat .none { justify-self: end; color: var(--slate); font-size: 13px; }
+  #card .bar { height: 6px; border-radius: 3px; background: var(--fill-strong); overflow: hidden; }
   #card .bar i { display: block; height: 100%; border-radius: 3px; }
-  #card .badge { margin-top: 6px; padding: 2px 7px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 650; letter-spacing: 0; }
+  #card .badge { justify-self: end; padding: 1px 7px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 650; letter-spacing: 0; white-space: nowrap; }
   #card .badge.good { background: #1f7a45; } /* white text at 11px needs ≥4.5:1: these are 5.3, 6.0 and 6.0 */
   #card .badge.mid { background: #636366; }
   #card .badge.low { background: #b8322a; }
@@ -275,8 +276,10 @@
     body.sv-on #rail, body.card-on #rail { opacity: 0; pointer-events: none; }
     #empty { inset: 0 0 var(--sheet, 140px) 0; }
     #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; will-change: transform; }
-    #card .grabber { display: block; margin-bottom: 12px; }
-    #card dl { overflow: auto; }
+    #card { display: flex; flex-direction: column; }
+    #card .grabber { display: block; flex: none; margin-bottom: 12px; }
+    #card .head { flex: none; }
+    #card .scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; } /* taller than the sheet: the part under the title scrolls */
     #svBar { left: 12px; right: 12px; flex-wrap: wrap; align-items: flex-start; }
     #svTitle { font-size: 13px; border-radius: 12px; max-width: 100%; } /* long names get their own line */
     #svPanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 16px 16px 0 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }

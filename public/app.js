@@ -75,8 +75,8 @@ const sheetHeights = () => [document.querySelector('#rail .grip').offsetHeight, 
 const sheet = createSheet($('rail'), { detents: sheetHeights, grip: '.grip', enabled: () => mq.matches });
 const contentHeight = node => { const prev = node.style.height; node.style.height = 'auto'; const h = node.scrollHeight; node.style.height = prev; return h; };
 const cardSheet = createSheet($('card'), {
-  detents: () => [Math.min(contentHeight($('card')), Math.round(innerHeight * 0.72))],
-  grip: '#card', enabled: () => mq.matches, onDismiss: () => hideCard({ instant: true }),
+  detents: () => [Math.min(contentHeight($('card')) + 1, Math.round(innerHeight * 0.72))], // +1: scrollHeight rounds, and half a pixel short makes the body scroll
+  grip: '#card .grabber, #card .head', enabled: () => mq.matches, onDismiss: () => hideCard({ instant: true }),
 });
 
 // the highlighted dot: the hovered one, else the selected one; none in Street View
@@ -227,12 +227,13 @@ function emptyState(n) {
 // ---------- details card: a popover that grows out of what was clicked; a sheet on phones ----------
 let moved = false, drag = null; // desktop: dragged by hand since it opened; the drag in progress
 
+// head: title lines (on phones they drag the sheet); body: the rest (on phones it scrolls when the sheet is full)
 // (ax, ay): the point it grows out of on desktop; leave them out to keep it where it is
-function openCard(kids, ax, ay) {
+function openCard(head, body, ax, ay) {
   const card = $('card');
   const close = el('button', { id: 'close', 'aria-label': tr('close') }, icon('M6 6l12 12M18 6L6 18'));
   close.onclick = () => hideCard();
-  card.replaceChildren(el('div', { className: 'grabber' }), close, ...kids);
+  card.replaceChildren(el('div', { className: 'grabber' }), close, el('div', { className: 'head' }, ...head), el('div', { className: 'scroll' }, ...body));
   hiding?.cancel(); hiding = null; // reopened while closing: keep it open
   const wasOpen = !card.hidden;
   card.hidden = false;
@@ -267,20 +268,20 @@ function showCard(i) {
   selected = i; refocus();
   const m = data.models[i];
   const ranks = Object.keys(MEASURES).filter(k => k !== 'release').map(k => [k, percentile(data.models, m, k)]);
-  const tiles = ranks.map(([k, p]) => {
+  const stats = ranks.map(([k, p]) => {
     const ms = MEASURES[k], label = el('span', { className: 'lab', textContent: ms.tile ?? ms.name });
-    if (p == null) return el('div', { className: 'tile' }, label, el('span', { className: 'none', textContent: tr('notMeasured') }));
+    if (p == null) return el('div', { className: 'stat' }, label, el('span', { className: 'none', textContent: tr('notMeasured') }));
     const fill = el('i'), ax = axes.indexOf(k); // on the chart now: the bar takes that axis's colour
     Object.assign(fill.style, { width: p + '%', background: ax < 0 ? 'var(--slate)' : `var(--ax-${ax})` });
-    return el('div', { className: 'tile' }, label, el('span', { className: 'big', textContent: (ms.short ?? ms.fmt)(m[k]) }), el('span', { className: 'bar' }, fill),
+    return el('div', { className: 'stat' }, label, el('span', { className: 'big', textContent: (ms.short ?? ms.fmt)(m[k]) }), el('span', { className: 'bar' }, fill),
       el('span', { className: 'badge ' + (p >= 60 ? 'good' : p >= 40 ? 'mid' : 'low'), textContent: rankWord(lang, p) }));
   });
   const co = el('button', { 'aria-label': tr('aboutCo', { name: m.company }), textContent: m.company });
   co.onclick = () => showCompany(m.company);
   const p = scene.worldOf(i)?.clone().project(scene.camera); // grows out of the dot
   openCard([el('h3', { textContent: m.name }),
-    el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [tr('released', { date: MEASURES.release.fmt(m.release) })] : []))),
-    el('p', { className: 'verdict', textContent: verdict(lang, ranks) }), el('div', { className: 'tiles' }, ...tiles)],
+    el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [tr('released', { date: MEASURES.release.fmt(m.release) })] : [])))],
+  [el('p', { className: 'verdict', textContent: verdict(lang, ranks) }), el('div', { className: 'stats' }, ...stats)],
   p ? ((p.x + 1) / 2) * innerWidth : innerWidth - 40, p ? ((1 - p.y) / 2) * innerHeight : innerHeight - 40);
 }
 
@@ -290,15 +291,15 @@ function showCompany(co, from) {
   const facts = companyFacts(data.models, co, Object.keys(MEASURES).filter(k => k !== 'release')), c = COMPANIES[co];
   const rows = facts.best.map(({ key, model }) => el('div', { className: 'row' },
     el('dt', { textContent: MEASURES[key].name }), el('dd', {}, model.name, el('small', { textContent: MEASURES[key].fmt(model[key]) }))));
-  const kids = [el('h3', { textContent: co })];
-  if (c) kids.push(el('p', { className: 'who' }, dot(co), el('a', { href: c.url, target: '_blank', rel: 'noopener', textContent: new URL(c.url).hostname.replace(/^www\./, '') + ' ↗' })),
-    el('p', { textContent: rtl ? c.fa : c.about }));
+  const head = [el('h3', { textContent: co })], kids = [];
+  if (c) head.push(el('p', { className: 'who' }, dot(co), el('a', { href: c.url, target: '_blank', rel: 'noopener', textContent: new URL(c.url).hostname.replace(/^www\./, '') + ' ↗' }))),
+    kids.push(el('p', { textContent: rtl ? c.fa : c.about }));
   kids.push(el('p', { className: 'facts', textContent: tr(facts.count === 1 ? 'models.one' : 'models.many', { n: f.int(facts.count) })
     + (facts.newest ? tr('newest', { name: facts.newest.name, date: MEASURES.release.fmt(facts.newest.release) }) : '') }),
     el('dl', {}, ...rows));
-  if (!from) return openCard(kids);
+  if (!from) return openCard(head, kids);
   const r = from.getBoundingClientRect();
-  openCard(kids, r.left + r.width / 2, r.top + r.height / 2);
+  openCard(head, kids, r.left + r.width / 2, r.top + r.height / 2);
 }
 
 function hideCard({ instant = false } = {}) {
