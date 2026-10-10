@@ -37,7 +37,7 @@ test('the verdict names standout, good and weak measures, in either language', (
     [[['speed', 92], ['agi', 97]], 'One of the fastest models, and among the best at ARC-AGI-2.', 'یکی از سریع‌ترین مدل‌ها و از بهترین‌ها در ARC-AGI-2.'],
     [[['agi', 97]], 'Among the best at ARC-AGI-2.', 'از بهترین‌ها در ARC-AGI-2.'],
     [[['intelligence', 70], ['cost', 65], ['agi', 80]], 'Above average on smartness, cost per task and ARC-AGI-2.', 'بالاتر از میانگین در هوشمندی، هزینه هر کار و ARC-AGI-2.'],
-    [[['intelligence', 50], ['agi', null]], 'About average across the board.', 'در همه معیارها نزدیک به میانگین.'],
+    [[['intelligence', 50], ['agi', null]], 'About average across the board.', 'در همه سنجه‌ها نزدیک به میانگین.'],
   ];
   for (const [ranks, en, fa] of cases) {
     assert.equal(verdict('en', ranks), en);
