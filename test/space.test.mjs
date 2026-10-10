@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScale, ticks, layout, nearest, compare, BETTER, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile } from '../public/space.js';
+import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile } from '../public/space.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -68,7 +68,6 @@ test('compare names the two biggest differences in plain words', () => {
 
 test('better direction per measure', () => {
   assert.equal(betterSign('cost'), -1); assert.equal(betterSign('price'), -1); assert.equal(betterSign('speed'), 1);
-  assert.equal(BETTER.price, 'cheaper'); assert.equal(BETTER.release, 'newer');
 });
 
 test('a path is walked by distance', () => {

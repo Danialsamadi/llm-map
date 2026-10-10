@@ -27,8 +27,9 @@ test('every company in the table is named exactly as in the data', () => {
   for (const co of Object.keys(COMPANIES)) assert.ok(names.has(co), `${co} is not a company in models.json`);
 });
 
-test('every company has an https website and a one-sentence description', () => {
-  for (const [co, { url, about }] of Object.entries(COMPANIES)) {
+test('every company has an https website and a one-sentence description in English and Persian', () => {
+  for (const [co, { url, about, fa }] of Object.entries(COMPANIES)) {
+    assert.ok(typeof fa === 'string' && /[\u0600-\u06FF]/.test(fa) && fa.endsWith('.'), `${co} Persian: ${fa}`);
     assert.ok(url.startsWith('https://'), `${co}: ${url}`);
     assert.ok(typeof about === 'string' && about.length > 1 && about.endsWith('.'), `${co}: ${about}`);
   }

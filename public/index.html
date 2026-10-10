@@ -5,9 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>LLM map</title>
+<script>{ // language before anything is drawn, so a Persian page never flashes left-to-right: the link's #lang=fa, else the saved choice, else English
+  let l = new URLSearchParams(location.hash.slice(1)).get('lang');
+  if (!l) try { l = localStorage.getItem('lang'); } catch {}
+  if (l === 'fa') { document.documentElement.lang = 'fa'; document.documentElement.dir = 'rtl'; }
+}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Vazirmatn:wght@100..900&display=swap">
 <!-- minified three.js: three.module.min.js still imports the unminified ./three.core.js (1.4 MB), so that URL is redirected to its .min build too -->
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js", "three/addons/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/controls/OrbitControls.min.js", "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.js": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.min.js" } }</script>
 <style>
@@ -21,8 +26,8 @@
     --signal: #0071e3; --signal-soft: #e8f1fd;
     --ax-0: #2f6fde; --ax-1: #d98a00; --ax-2: #b8409a; /* X, Y, Z axis colours */
     --ax-1-text: #b87400; /* amber text needs more contrast on the light background */
-    --font: "Bricolage Grotesque", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --rail: 324px; /* room the desktop sidebar takes on the left: 12 + 300 + 12 */
+    --font: "Bricolage Grotesque", "Vazirmatn", system-ui, /* Bricolage has no Persian letters: those fall through to Vazirmatn, Latin names stay in Bricolage */ -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --rail: 324px; /* room the desktop sidebar takes on the reading-start side: 12 + 300 + 12 */
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -62,7 +67,7 @@
   #chart canvas { display: block; }
 
   /* ---------- sidebar (desktop) / bottom sheet (phone) ---------- */
-  #rail { position: fixed; z-index: 4; top: 12px; left: 12px; bottom: 12px; width: 300px; border-radius: 18px; display: flex; flex-direction: column; overflow: hidden; }
+  #rail { position: fixed; z-index: 4; top: 12px; inset-inline-start: 12px; bottom: 12px; width: 300px; border-radius: 18px; display: flex; flex-direction: column; overflow: hidden; }
   .grip { display: none; }
   .body { flex: 1; min-height: 0; overflow: auto; padding: 18px 14px 16px; display: flex; flex-direction: column; gap: 22px; overscroll-behavior: contain; }
   .brand { padding: 0 6px; }
@@ -83,7 +88,7 @@
   .measures { list-style: none; margin: 8px 0 0; padding: 0; color: var(--ink); }
   .measures li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 2px 0; }
   .measures span:last-child { color: var(--slate); font-size: 12px; letter-spacing: 0; }
-  .ax-mark { display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; }
+  .ax-mark { display: inline-block; width: 9px; height: 9px; margin-inline-end: 8px; border-radius: 50%; }
   .ax-mark-0 { background: var(--ax-0); } .ax-mark-1 { background: var(--ax-1); } .ax-mark-2 { background: var(--ax-2); }
   .ax-text-0 { color: var(--ax-0); } .ax-text-1 { color: var(--ax-1-text); } .ax-text-2 { color: var(--ax-2); }
   #custom { display: grid; gap: 6px; margin-top: 10px; }
@@ -113,10 +118,11 @@
   .info svg { width: 18px; height: 18px; stroke-width: 2; }
   .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
 
-  /* ---------- right-hand control stack, like Maps ---------- */
-  #ctrls { position: fixed; z-index: 6; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 2px; padding: 4px; border-radius: 14px; }
+  /* ---------- control stack on the reading-end side, like Maps ---------- */
+  #ctrls { position: fixed; z-index: 6; top: 12px; inset-inline-end: 12px; display: flex; flex-direction: column; gap: 2px; padding: 4px; border-radius: 14px; }
   #ctrls button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; background: none; color: var(--ink); cursor: pointer; }
   #ctrls button:hover { background: var(--fill); }
+  #langBtn { font: 650 15px/1 var(--font); }
   #ctrls svg { width: 22px; height: 22px; }
   #figure { cursor: grab; touch-action: none; }
   #figure svg { width: 28px; height: 28px; }
@@ -126,7 +132,7 @@
   #tip { position: absolute; z-index: 5; pointer-events: none; display: flex; flex-direction: column; max-width: 240px; padding: 6px 10px; border-radius: 10px; font-size: 13px; line-height: 1.3; }
   #tip strong { font-weight: 600; }
   #tip span { color: var(--slate); font-size: 12px; }
-  #empty { position: absolute; inset: 0 0 0 var(--rail); display: grid; place-content: center; text-align: center; padding: 24px; color: var(--slate); pointer-events: none; }
+  #empty { position: absolute; inset: 0; inset-inline-start: var(--rail); display: grid; place-content: center; text-align: center; padding: 24px; color: var(--slate); pointer-events: none; }
   #empty p { margin: 0 0 12px; max-width: 34ch; }
 
   /* ---------- loading cover: the page appears whole instead of piece by piece ---------- */
@@ -177,7 +183,7 @@
   #card dl { margin: 0; }
   #card .row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: .5px solid var(--rule); }
   #card dt { color: var(--slate); }
-  #card dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #card dd { margin: 0; text-align: end; font-weight: 600; font-variant-numeric: tabular-nums; }
   #card dd small { display: block; font-weight: 400; color: var(--slate); font-size: 12px; letter-spacing: 0; }
   #card dd.none { font-weight: 400; color: var(--slate); }
   #card .verdict { margin: 2px 0 14px; color: var(--ink); font-size: 17px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; }
@@ -193,7 +199,7 @@
   #card .badge.good { background: #1f7a45; } /* white text at 11px needs ≥4.5:1: these are 5.3, 6.0 and 6.0 */
   #card .badge.mid { background: #636366; }
   #card .badge.low { background: #b8322a; }
-  #close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fill); color: var(--slate); cursor: pointer; }
+  #close { position: absolute; top: 12px; inset-inline-end: 12px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fill); color: var(--slate); cursor: pointer; }
   #close svg { width: 12px; height: 12px; }
 
   dialog { max-width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); border: 0; border-radius: 20px; padding: 26px 28px 22px; background: var(--panel); color: var(--ink); box-shadow: 0 24px 80px rgb(0 0 0 / .3); }
@@ -203,7 +209,7 @@
   dialog h2:first-of-type { margin-top: 0; font-size: 22px; letter-spacing: -0.022em; }
   @media (max-width: 400px) { dialog h2:first-of-type { font-size: 21px; } } /* Bricolage runs wider: keeps the About title on one line beside Done on 375px phones */
   dialog p, dialog ul { margin: 0 0 8px; color: var(--slate); }
-  dialog ul { padding-left: 18px; }
+  dialog ul { padding-inline-start: 18px; }
   dialog li { margin: 3px 0; }
   dialog strong { color: var(--ink); font-weight: 600; }
   dialog a { color: var(--signal); }
@@ -213,9 +219,9 @@
   @media (prefers-reduced-motion: reduce) { dialog[open] { animation: fade .2s ease; } @keyframes fade { from { opacity: 0; } } }
 
   /* ---------- Street View ---------- */
-  #svMenu, #svHint { position: fixed; right: 12px; top: 156px; z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(300px, calc(100% - 24px)); padding: 8px; border-radius: 14px; transform-origin: top right; animation: arrive .24s cubic-bezier(.2, .9, .25, 1); }
+  #svMenu, #svHint { position: fixed; inset-inline-end: 12px; top: 156px; z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(300px, calc(100% - 24px)); padding: 8px; border-radius: 14px; transform-origin: top right; animation: arrive .24s cubic-bezier(.2, .9, .25, 1); }
   #svMenu p { margin: 2px 8px 4px; color: var(--slate); font-size: 13px; font-weight: 600; }
-  #svMenu button { padding: 9px 12px; border: 0; border-radius: 9px; background: none; text-align: left; cursor: pointer; }
+  #svMenu button { padding: 9px 12px; border: 0; border-radius: 9px; background: none; text-align: start; cursor: pointer; }
   #svMenu button:hover { background: var(--fill); }
   #svHint { flex-direction: row; flex-wrap: wrap; align-items: center; }
   #svHint span { width: 100%; margin: 2px 6px 4px; font-weight: 600; }
@@ -223,22 +229,22 @@
   #dropLabel { position: absolute; z-index: 7; pointer-events: none; padding: 5px 12px; border-radius: 999px; background: var(--ink); color: var(--panel); font-size: 13px; font-weight: 600; white-space: nowrap; transform: translate(-50%, -64px); }
   #tags { position: absolute; inset: 0; z-index: 3; overflow: hidden; pointer-events: none; }
   .tag { position: absolute; left: 0; top: 0; pointer-events: auto; padding: 3px 10px; border: 0; border-radius: 999px; color: var(--ink); font: 600 12px/1.4 var(--font); white-space: nowrap; cursor: pointer; }
-  #svBar { position: absolute; top: 12px; left: calc(var(--rail) + 0px); right: 312px; z-index: 5; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+  #svBar { position: absolute; top: 12px; inset-inline-start: var(--rail); inset-inline-end: 312px; z-index: 5; display: flex; gap: 8px; align-items: center; pointer-events: none; }
   #svBar > * { pointer-events: auto; }
   #svBack { flex: none; white-space: nowrap; font-weight: 600; }
   #svBar #svBack { background: var(--glass); box-shadow: var(--shadow), inset 0 0 0 .5px var(--hair); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); padding: 8px 14px; border-radius: 999px; }
   #svTitle { padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; }
-  #svPanel { position: absolute; top: 12px; right: 12px; z-index: 5; width: 288px; max-height: calc(100% - 180px); overflow: auto; padding: 14px 14px 10px; border-radius: 16px; }
+  #svPanel { position: absolute; top: 12px; inset-inline-end: 12px; z-index: 5; width: 288px; max-height: calc(100% - 180px); overflow: auto; padding: 14px 14px 10px; border-radius: 16px; }
   #svPanel h3 { margin: 0 0 6px; font-size: 15px; font-weight: 700; letter-spacing: -0.015em; }
-  #svPanel ol { margin: 0; padding-left: 20px; }
-  #svPanel button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 6px 4px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }
+  #svPanel ol { margin: 0; padding-inline-start: 20px; }
+  #svPanel button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 6px 4px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: start; }
   #svPanel button:hover { background: var(--fill); }
   #svPanel button span { color: var(--slate); font-size: 12px; }
-  #svGuide { position: absolute; right: 16px; bottom: 16px; z-index: 4; width: 130px; height: 130px; overflow: visible; pointer-events: none; }
+  #svGuide { position: absolute; inset-inline-end: 16px; bottom: 16px; z-index: 4; width: 130px; height: 130px; overflow: visible; pointer-events: none; }
   #svGuide line { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
   #svGuide circle { fill: var(--ink); }
   #svGuide text { fill: var(--ink); font: 600 11px var(--font); text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: var(--ground); stroke-width: 3px; }
-  #svControls { position: absolute; left: calc(var(--rail) + 0px); bottom: 16px; z-index: 5; max-width: calc(100% - var(--rail) - 178px); }
+  #svControls { position: absolute; inset-inline-start: var(--rail); bottom: 16px; z-index: 5; max-width: calc(100% - var(--rail) - 178px); }
   .ride { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: min(460px, calc(100vw - 32px)); padding: 8px; border-radius: 14px; background: var(--glass); box-shadow: var(--shadow), inset 0 0 0 .5px var(--hair); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
   .ride input[type=range] { flex: 1 1 160px; accent-color: var(--ink); }
   .rate { min-width: 2.5em; text-align: center; color: var(--slate); font-variant-numeric: tabular-nums; }
@@ -274,21 +280,23 @@
     #svBar { left: 12px; right: 12px; flex-wrap: wrap; align-items: flex-start; }
     #svTitle { font-size: 13px; border-radius: 12px; max-width: 100%; } /* long names get their own line */
     #svPanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 16px 16px 0 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-    #svControls { left: 12px; max-width: calc(100% - 24px); bottom: calc(16px + env(safe-area-inset-bottom)); }
-    #svGuide { top: 84px; right: 8px; bottom: auto; width: 100px; height: 100px; } /* clears a three-line "Now passing" title */
+    #svControls { inset-inline-start: 12px; max-width: calc(100% - 24px); bottom: calc(16px + env(safe-area-inset-bottom)); }
+    #svGuide { top: 84px; inset-inline-end: 8px; bottom: auto; width: 100px; height: 100px; } /* clears a three-line "Now passing" title */
     #svMenu, #svHint { top: 156px; }
   }
   @media (min-width: 700px) { .peek { display: none; } }
+  [dir=rtl] #svMenu, [dir=rtl] #svHint { transform-origin: top left; } /* they grow out of the control stack's corner */
 </style>
 </head>
 <body>
-<div id="loading" role="status"><div class="dots" aria-hidden="true"><b><i></i></b><b><i></i></b><b><i></i></b></div><p class="msg" id="loadMsg">Loading the 3D engine…</p></div>
+<div id="loading" role="status"><div class="dots" aria-hidden="true"><b><i></i></b><b><i></i></b><b><i></i></b></div><p class="msg" id="loadMsg" data-t="load.engine">Loading the 3D engine…</p></div>
+<script>if (document.documentElement.lang === 'fa') loadMsg.textContent = 'در حال بارگذاری موتور سه‌بعدی…'; // app.js waits on three.js, so this first line is set here (same text as load.engine)</script>
 <main id="stage">
-  <div id="chart" role="img" aria-label="3D chart of language models"></div>
+  <div id="chart" role="img" aria-label="3D chart of language models" data-t-label="chart.aria"></div>
   <div id="tags"></div>
   <div id="tip" class="glass-thin" hidden></div>
-  <div id="svBar" hidden><button id="svBack">Back to overview</button><span id="svTitle" class="glass-thin"></span></div>
-  <aside id="svPanel" class="glass" hidden aria-label="Nearby models"></aside>
+  <div id="svBar" hidden><button id="svBack" data-t="sv.back">Back to overview</button><span id="svTitle" class="glass-thin"></span></div>
+  <aside id="svPanel" class="glass" hidden aria-label="Nearby models" data-t-label="sv.panel"></aside>
   <svg id="svGuide" hidden aria-hidden="true"></svg>
   <div id="svControls"></div>
   <div id="dropLabel" hidden></div>
@@ -296,61 +304,62 @@
   <article id="card" class="glass" hidden aria-live="polite"></article>
 </main>
 
-<aside id="rail" class="glass" aria-label="Controls">
+<aside id="rail" class="glass" aria-label="Controls" data-t-label="rail.aria">
   <div class="grip">
-    <button class="grabber" id="grabber" aria-label="Show more or fewer controls"></button>
+    <button class="grabber" id="grabber" aria-label="Show more or fewer controls" data-t-label="grabber"></button>
     <div class="peek"><p class="peek-q" id="peekQ"></p><ul class="key" id="peekKey"></ul></div>
   </div>
   <div class="body">
-    <header class="brand"><h1>LLM map</h1><p class="status" id="status"></p></header>
+    <header class="brand"><h1 data-t="brand">LLM map</h1><p class="status" id="status"></p></header>
     <section aria-labelledby="h-ask">
-      <h2 id="h-ask">Question</h2>
+      <h2 id="h-ask" data-t="h.question">Question</h2>
       <div id="questions" role="radiogroup" aria-labelledby="h-ask"></div>
     </section>
     <section aria-labelledby="h-cos">
-      <div class="cos-head"><h2 id="h-cos">Companies</h2><span id="count"></span></div>
-      <div class="seg" role="group" aria-label="Quick pick">
-        <button data-pick="top" aria-pressed="false">Top 5</button><button data-pick="all" aria-pressed="false">All</button><button data-pick="none" aria-pressed="false">None</button>
+      <div class="cos-head"><h2 id="h-cos" data-t="h.companies">Companies</h2><span id="count"></span></div>
+      <div class="seg" role="group" aria-label="Quick pick" data-t-label="pick.group">
+        <button data-pick="top" aria-pressed="false" data-t="pick.top">Top 5</button><button data-pick="all" aria-pressed="false" data-t="pick.all">All</button><button data-pick="none" aria-pressed="false" data-t="pick.none">None</button>
       </div>
-      <input id="q" type="search" placeholder="Search" aria-label="Search companies">
+      <input id="q" type="search" placeholder="Search" aria-label="Search companies" data-t-ph="search" data-t-label="search.aria">
       <div id="cos-list" role="group" aria-labelledby="h-cos"></div>
     </section>
   </div>
 </aside>
 
 <div id="ctrls" class="glass">
-  <button id="aboutBtn" title="About this map" aria-label="About this map">
+  <button id="langBtn" lang="fa" aria-label="فارسی" data-t="lang.short" data-t-label="lang.aria">فا</button>
+  <button id="aboutBtn" title="About this map" aria-label="About this map" data-t-title="ctrl.about" data-t-label="ctrl.about">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg>
   </button>
-  <button id="homeBtn" title="Reset view" aria-label="Reset view">
+  <button id="homeBtn" title="Reset view" aria-label="Reset view" data-t-title="ctrl.home" data-t-label="ctrl.home">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v4h4"/></svg>
   </button>
-  <button id="figure" title="Street View" aria-label="Street View: drag the figure into the chart, or press to choose where to go">
+  <button id="figure" title="Street View" aria-label="Street View: drag the figure into the chart, or press to choose where to go" data-t-title="ctrl.figureTitle" data-t-label="ctrl.figure">
     <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="7" r="5" fill="#f5c518" stroke="#1d2733" stroke-width="1.5"/><path d="M9 14h14l-2 8h-3l-1 8h-2l-1-8h-3z" fill="#f5c518" stroke="#1d2733" stroke-width="1.5" stroke-linejoin="round"/></svg>
   </button>
 </div>
 <div id="svMenu" class="glass" hidden>
-  <p>Step into the chart</p>
-  <button data-mode="stand">Stand at a model</button>
-  <button data-mode="ride">Ride a company's line</button>
-  <button data-mode="fly">Fly around</button>
+  <p data-t="sv.menu">Step into the chart</p>
+  <button data-mode="stand" data-t="sv.stand">Stand at a model</button>
+  <button data-mode="ride" data-t="sv.ride">Ride a company's line</button>
+  <button data-mode="fly" data-t="sv.fly">Fly around</button>
 </div>
 <div id="svHint" class="glass" hidden></div>
 
 <dialog id="about" aria-labelledby="about-h">
   <!-- Done comes first so opening the dialog focuses it here at the top; focusing a link lower down scrolled the dialog -->
-  <form method="dialog" class="dialog-head"><h2 id="about-h">How to use this map</h2><button class="btn">Done</button></form>
+  <form method="dialog" class="dialog-head"><h2 id="about-h" data-t="about.h">How to use this map</h2><button class="btn" data-t="about.done">Done</button></form>
   <ul>
-    <li>Each dot is one AI model. Each line joins one company's models, oldest to newest.</li>
-    <li>Drag to turn the chart. Scroll, or pinch on a phone, to zoom.</li>
-    <li>Click a dot to see all of that model's numbers.</li>
-    <li>Drag the yellow figure into the chart to step inside it.</li>
-    <li>The link in your address bar keeps your question and companies, so you can share exactly what you see.</li>
+    <li data-t="about.l1">Each dot is one AI model. Each line joins one company's models, oldest to newest.</li>
+    <li data-t="about.l2">Drag to turn the chart. Scroll, or pinch on a phone, to zoom.</li>
+    <li data-t="about.l3">Click a dot to see all of that model's numbers.</li>
+    <li data-t="about.l4">Drag the yellow figure into the chart to step inside it.</li>
+    <li data-t="about.l5">The link in your address bar keeps your question and companies, so you can share exactly what you see.</li>
   </ul>
-  <h2>What the measures mean</h2>
+  <h2 data-t="about.measures">What the measures mean</h2>
   <ul id="glossary"></ul>
-  <h2>Where the numbers come from</h2>
-  <p>Smartness, cost, price, speed and release dates come from <a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a>. ARC-AGI-2 scores come from the <a href="https://arcprize.org/leaderboard" target="_blank" rel="noopener">ARC Prize leaderboard</a> and are matched to the same model and effort setting; models ARC hasn't tested have no score.</p>
+  <h2 data-t="about.sources">Where the numbers come from</h2>
+  <p><span data-t="about.src1">Smartness, cost, price, speed and release dates come from </span><a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a><span data-t="about.src2">. ARC-AGI-2 scores come from the </span><a href="https://arcprize.org/leaderboard" target="_blank" rel="noopener" data-t="about.arcLink">ARC Prize leaderboard</a><span data-t="about.src3"> and are matched to the same model and effort setting; models ARC hasn't tested have no score.</span></p>
   <p id="about-status"></p>
 </dialog>
 

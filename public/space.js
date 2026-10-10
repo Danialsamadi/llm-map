@@ -1,4 +1,5 @@
 // Pure math for the LLM map: no DOM, no three.js. Tested by test/space.test.mjs.
+import { t } from './i18n.js';
 
 const DAY = 864e5;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -19,7 +20,7 @@ export function makeScale(kind, values) {
 
 const fmtSmall = v => (v >= 1 ? String(Math.round(v)) : v.toFixed(Math.ceil(-Math.log10(v))));
 
-// Tick marks for one axis: [{ cube, label }], inside -1..1.
+// Tick marks for one axis: [{ cube, label, iso? }], inside -1..1. Date ticks carry their date so a page can label them in its own calendar.
 export function ticks(scale, count = 5) {
   const { kind, lo, hi, cube } = scale, out = [];
   if (kind === 'date') {
@@ -29,7 +30,7 @@ export function ticks(scale, count = 5) {
     let m = d.getUTCFullYear() * 12 + d.getUTCMonth() + 1; // first month that starts after lo
     m = Math.ceil(m / step) * step;
     for (; Date.UTC(Math.floor(m / 12), m % 12, 1) <= hi; m += step)
-      out.push({ u: Date.UTC(Math.floor(m / 12), m % 12, 1), label: `${MONTHS[m % 12]} ${Math.floor(m / 12)}` });
+      out.push({ u: Date.UTC(Math.floor(m / 12), m % 12, 1), label: `${MONTHS[m % 12]} ${Math.floor(m / 12)}`, iso: new Date(Date.UTC(Math.floor(m / 12), m % 12, 1)).toISOString().slice(0, 10) });
   } else if (kind === 'log') {
     for (let n = Math.ceil(lo); n <= Math.floor(hi); n++) out.push({ u: n, label: n >= 0 ? String(10 ** n) : (10 ** n).toFixed(-n) });
     if (out.length < 2)
@@ -42,7 +43,7 @@ export function ticks(scale, count = 5) {
     const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
     for (let k = Math.ceil(lo / step - 1e-9); k * step <= hi + 1e-9; k++) out.push({ u: k * step, label: (k * step).toFixed(dec) });
   }
-  return out.map(({ u, label }) => ({ cube: cube(u), label }));
+  return out.map(({ u, ...rest }) => ({ cube: cube(u), ...rest }));
 }
 
 // Cube coordinates [x, y, z] for each visible model; one scale per measure, fitted to the visible models.
@@ -59,23 +60,17 @@ export function nearest(pos, from, n, exclude) {
     .sort((a, b) => a[1] - b[1] || a[0] - b[0]).slice(0, n).map(([j]) => j);
 }
 
-// [word when the value is higher, word when lower]
-const WORDS = {
-  intelligence: ['smarter', 'less smart'], cost: ['pricier', 'cheaper'], price: ['pricier', 'cheaper'],
-  speed: ['faster', 'slower'], agi: ['higher ARC-AGI-2', 'lower ARC-AGI-2'], release: ['newer', 'older'],
-};
-export const BETTER = { intelligence: 'smarter', cost: 'cheaper', price: 'cheaper', speed: 'faster', agi: 'higher ARC-AGI-2', release: 'newer' };
 export const betterSign = k => (k === 'cost' || k === 'price' ? -1 : 1);
 
 // How `to` differs from `from`, in words, from the two biggest differences (cube units).
-export function compare(axes, from, to) {
+export function compare(axes, from, to, lang = 'en') {
   const diffs = axes.map((k, i) => ({ k, d: to[i] - from[i] }))
     .filter(({ d }) => Math.abs(d) >= 0.1)
     .sort((a, b) => Math.abs(b.d) - Math.abs(a.d))
     .filter((x, i, all) => all.findIndex(y => y.k === x.k) === i) // the same measure twice (custom axes) counts once
     .slice(0, 2);
-  if (!diffs.length) return 'very similar';
-  return diffs.map(({ k, d }) => (Math.abs(d) > 0.4 ? 'much ' : 'a bit ') + WORDS[k][d > 0 ? 0 : 1]).join(', ');
+  if (!diffs.length) return t(lang, 'cmp.same');
+  return diffs.map(({ k, d }) => t(lang, Math.abs(d) > 0.4 ? 'cmp.much' : 'cmp.bit', { w: t(lang, `cmp.${k}.${d > 0 ? 'up' : 'down'}`) })).join(t(lang, 'list.comma'));
 }
 
 // Share (0-100) of the models measured on k that model m beats, in k's better direction; ties don't count. null if m has no value.

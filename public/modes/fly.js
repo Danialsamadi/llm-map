@@ -32,13 +32,13 @@ export const fly = {
     };
     const listeners = [['keydown', down], ['keyup', up], ['blur', blur], ['pointermove', move], ['pointerup', release], ['pointercancel', release]];
     for (const [t, f] of listeners) addEventListener(t, f);
-    controls.replaceChildren(el('div', { className: 'fly' }, pad, el('div', { className: 'vbtns' }, hold('Up', 1), hold('Down', -1)),
-      el('p', { className: 'keys', textContent: 'W A S D or arrow keys to move. Space and Shift go up and down.' })));
+    controls.replaceChildren(el('div', { className: 'fly' }, pad, el('div', { className: 'vbtns' }, hold(ctx.tr('sv.up'), 1), hold(ctx.tr('sv.down'), -1)),
+      el('p', { className: 'keys', textContent: ctx.tr('sv.keys') })));
 
     const fwd = new THREE.Vector3(), right = new THREE.Vector3(), v = new THREE.Vector3();
     const k = c => (keys.has(c) ? 1 : 0);
     return {
-      title: 'Flying freely',
+      title: ctx.tr('sv.flying'),
       pose: { position: eye, look, fov: 75 },
       frame(dt) {
         const f = k('KeyW') + k('ArrowUp') - k('KeyS') - k('ArrowDown') - stick.y;

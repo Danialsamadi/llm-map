@@ -2,11 +2,11 @@
 import { makePath } from '../space.js';
 
 const SPEEDS = [0.5, 1, 2, 4];
-const month = d => (d ? new Date(d + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' }) : 'release date unknown');
 
 export const ride = {
   start(ctx, target) {
-    const { THREE, scene, getState, el, controls } = ctx, company = target.company;
+    const { THREE, scene, getState, el, controls, tr, f } = ctx, company = target.company;
+    const month = d => (d ? f.month(d) : tr('sv.noDate'));
     const V = a => new THREE.Vector3(a[0], a[1], a[2]);
     let line, path, dist = 0, playing = true, speed = 1, free = false, scrubbing = false;
     function build() { // (re)read the line; positions move when the companies shown change
@@ -17,13 +17,14 @@ export const ride = {
     }
     build();
 
-    const play = el('button', { textContent: 'Pause' }), slower = el('button', { textContent: 'Slower' }), faster = el('button', { textContent: 'Faster' });
-    const rate = el('span', { className: 'rate', textContent: '1×' });
-    const range = el('input', { type: 'range', min: 0, max: 1000, step: 1, value: 0, 'aria-label': 'Position along the line' });
-    const ahead = el('button', { textContent: 'Look ahead' });
-    const setPlaying = on => { playing = on; play.textContent = on ? 'Pause' : 'Play'; };
+    const play = el('button', { textContent: tr('sv.pause') }), slower = el('button', { textContent: tr('sv.slower') }), faster = el('button', { textContent: tr('sv.faster') });
+    const times = s => f.num(s, s % 1 ? 1 : 0) + '×';
+    const rate = el('span', { className: 'rate', textContent: times(1) });
+    const range = el('input', { type: 'range', min: 0, max: 1000, step: 1, value: 0, 'aria-label': tr('sv.position') });
+    const ahead = el('button', { textContent: tr('sv.ahead') });
+    const setPlaying = on => { playing = on; play.textContent = tr(on ? 'sv.pause' : 'sv.play'); };
     play.onclick = () => { if (!playing && dist >= path.length) dist = 0; setPlaying(!playing); };
-    const setSpeed = d => { speed = SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + d))]; rate.textContent = speed + '×'; };
+    const setSpeed = d => { speed = SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + d))]; rate.textContent = times(speed); };
     slower.onclick = () => setSpeed(-1);
     faster.onclick = () => setSpeed(1);
     range.oninput = () => { dist = (range.value / 1000) * path.length; };
@@ -35,7 +36,7 @@ export const ride = {
     ahead.onclick = () => { free = false; };
     controls.replaceChildren(el('div', { className: 'ride' }, play, slower, rate, faster, range, ahead));
 
-    const passing = () => { const m = getState().models[line.models[path.reached(dist)]]; return `Now passing: ${m.name}, ${month(m.release)}`; };
+    const passing = () => { const m = getState().models[line.models[path.reached(dist)]]; return tr('sv.passing', { name: m.name, date: month(m.release) }); };
     return {
       title: passing(),
       pose: { position: V(path.at(0)), look: V(path.at(0.3)), fov: 75 },

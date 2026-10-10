@@ -1,6 +1,7 @@
 // Street View: drag the figure into the chart to stand at a model, ride a company's line or fly around.
 import * as THREE from 'three';
-import { BETTER, betterSign, FLY_START } from './space.js';
+import { betterSign, FLY_START } from './space.js';
+import { t, fmt } from './i18n.js';
 import { spring, tracker } from './spring.js';
 import { stand } from './modes/stand.js';
 import { fly } from './modes/fly.js';
@@ -19,7 +20,8 @@ const svg = (tag, attrs = {}) => { const e = document.createElementNS('http://ww
 const AXIS_DIRS = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0)]; // measure X, Y, Z in world space (scene.js toWorld)
 const modeOf = t => (t.kind === 'dot' ? 'stand' : t.kind === 'line' ? 'ride' : 'fly');
 
-export function createStreetView({ scene, getState, showCard, onChange }) {
+export function createStreetView({ scene, getState, showCard, onChange, lang = 'en' }) {
+  const tr = (k, v) => t(lang, k, v);
   const stage = $('stage'), fig = $('figure'), cam = scene.camera, canvas = scene.canvas;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const ms = d => (reduced.matches ? 0 : d);
@@ -44,11 +46,11 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
   }
   function setTitle(t) { if ($('svTitle').textContent !== t) $('svTitle').textContent = t; }
 
-  const ctx = { THREE, scene, getState, showCard, el, panel: $('svPanel'), controls: $('svControls'), setTitle, face, lookAt,
+  const ctx = { THREE, scene, getState, showCard, el, panel: $('svPanel'), controls: $('svControls'), setTitle, face, lookAt, tr, f: fmt(lang), lang,
     hop: index => enter({ kind: 'dot', index }, { duration: 600 }) };
 
   // ---------- the figure: drag to drop, press to choose ----------
-  const describe = t => (!t ? '' : t.kind === 'dot' ? `Stand at ${getState().models[t.index].name}` : t.kind === 'line' ? `Ride ${t.company}'s line` : 'Fly from here');
+  const describe = d => (!d ? '' : d.kind === 'dot' ? tr('sv.dropStand', { name: getState().models[d.index].name }) : d.kind === 'line' ? tr('sv.dropRide', { company: d.company }) : tr('sv.dropFly'));
   const usable = t => (t && MODES[modeOf(t)] ? t : null);
   let drag = null, home = null, off = [0, 0]; // home: springs flying the figure back; off: its current offset
   const place = () => { fig.style.translate = off[0] || off[1] ? `${off[0]}px ${off[1]}px` : ''; };
@@ -103,9 +105,9 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
     toggleMenu(false);
     if (kind === 'fly') return enter({ kind: 'floor', point: FLY_START });
     awaiting = kind === 'stand' ? 'dot' : 'line';
-    const h = $('svHint'), cancel = el('button', { textContent: 'Cancel' });
+    const h = $('svHint'), cancel = el('button', { textContent: tr('sv.cancel') });
     cancel.onclick = clearHint;
-    h.replaceChildren(el('span', { textContent: kind === 'stand' ? 'Tap a dot to stand there.' : 'Tap a line, or pick a company:' }));
+    h.replaceChildren(el('span', { textContent: tr(kind === 'stand' ? 'sv.tapDot' : 'sv.tapLine') }));
     if (kind === 'ride') for (const l of scene.lines()) if (l.points.length > 1) {
       const b = el('button', { textContent: l.company });
       b.onclick = () => { clearHint(); enter({ kind: 'line', company: l.company }); };
@@ -237,7 +239,7 @@ export function createStreetView({ scene, getState, showCard, onChange }) {
   function buildGuide() {
     const g = $('svGuide');
     g.setAttribute('viewBox', '-65 -65 130 130');
-    guide = getState().axes.map((k, i) => ({ line: svg('line', { x1: 0, y1: 0 }), text: svg('text'), dir: AXIS_DIRS[i].clone().multiplyScalar(betterSign(k)), word: BETTER[k] }));
+    guide = getState().axes.map((k, i) => ({ line: svg('line', { x1: 0, y1: 0 }), text: svg('text'), dir: AXIS_DIRS[i].clone().multiplyScalar(betterSign(k)), word: tr(`cmp.${k}.${betterSign(k) > 0 ? 'up' : 'down'}`) }));
     guide.forEach((x, i) => { x.text.textContent = x.word; x.line.style.stroke = `var(--ax-${i})`; x.text.style.fill = `var(--ax-${i}-text, var(--ax-${i}))`; }); // same colour as the axis in the chart
     g.replaceChildren(svg('circle', { r: 3 }), ...guide.flatMap(x => [x.line, x.text]));
     updateGuide();

@@ -79,17 +79,17 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   const onFrame = f => { subs.add(f); render(); return () => subs.delete(f); };
 
   // The chart fills the window and panels float over it; insets keep the cube centred in the part left uncovered.
-  let insets = { left: 0, bottom: 0 };
+  let insets = { left: 0, right: 0, bottom: 0 };
   function applyView() {
     const w = container.clientWidth, h = container.clientHeight;
     camera.aspect = w / h;
-    if (insets.left || insets.bottom) camera.setViewOffset(w, h, -insets.left / 2, insets.bottom / 2, w, h);
+    if (insets.left || insets.right || insets.bottom) camera.setViewOffset(w, h, (insets.right - insets.left) / 2, insets.bottom / 2, w, h);
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   }
   // the starting view: the whole cube, further out when the open area is tall and narrow
   function home() {
-    const w = container.clientWidth - insets.left, h = container.clientHeight - insets.bottom;
+    const w = container.clientWidth - insets.left - insets.right, h = container.clientHeight - insets.bottom;
     return new THREE.Vector3(1, 0.75, -1).normalize().multiplyScalar(5 * Math.max(1, Math.min(2.2, h / Math.max(1, w))));
   }
 
@@ -122,7 +122,9 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     g.font = font;
     const w = Math.ceil(g.measureText(text).width) + 16;
     c.width = w; c.height = 64;
-    g.font = font; g.fillStyle = color; g.textBaseline = 'middle'; g.fillText(text, 8, 34);
+    g.font = font; g.fillStyle = color; g.textBaseline = 'middle';
+    if (document.documentElement.dir === 'rtl') { g.direction = 'rtl'; g.textAlign = 'right'; g.fillText(text, w - 8, 34); } // Persian titles: brackets and Latin words land in reading order
+    else g.fillText(text, 8, 34);
     const map = new THREE.CanvasTexture(c);
     map.colorSpace = THREE.SRGBColorSpace;
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false }));
@@ -150,16 +152,19 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     for (const t of tz) grid.push(V(-1, t.cube, -1), V(-1, t.cube, 1), V(-1, t.cube, 1), V(1, t.cube, 1));
     frame.add(segments(grid, rule, 0.7));
     const tick = 0.09 * k, title = 0.11 * k;
-    for (const t of tx) frame.add(at(textSprite(t.label, tick, tx0), t.cube, -1 - 0.05 * e, -1.14));
-    for (const t of ty) frame.add(at(textSprite(t.label, tick, ty0), 1.14, -1 - 0.1 * e, -t.cube));
-    for (const t of tz) frame.add(at(textSprite(t.label, tick, tz0), -1.12 - 0.05 * e, t.cube, -1.06 - 0.05 * e));
+    for (const t of tx) frame.add(at(textSprite(tickLabel(t), tick, tx0), t.cube, -1 - 0.05 * e, -1.14));
+    for (const t of ty) frame.add(at(textSprite(tickLabel(t), tick, ty0), 1.14, -1 - 0.1 * e, -t.cube));
+    for (const t of tz) frame.add(at(textSprite(tickLabel(t), tick, tz0), -1.12 - 0.05 * e, t.cube, -1.06 - 0.05 * e));
     frame.add(at(textSprite(titles[0], title, tx0, 700), 0, -1.12, -1.45 - 0.3 * e));
     frame.add(at(textSprite(titles[1], title, ty0, 700), 1.45 + 0.3 * e, -1.12, 0));
     frame.add(at(textSprite(titles[2], title, tz0, 700), -1.0 + 0.3 * e, 1.2 + 0.4 * e, -1.0 + 0.3 * e));
   }
 
   // ---------- data ----------
-  function setData({ models, visible, axes, kinds, titles, colors }) {
+  let tickLabel = t => t.label;
+  // tickLabel: how the page writes a tick ({ label, iso? }), e.g. in its own digits and calendar
+  function setData({ models, visible, axes, kinds, titles, colors, tickLabel: tl = t => t.label }) {
+    tickLabel = tl;
     const { scales, pos } = layout(models, visible, axes, kinds);
     const world = new Map([...pos].map(([j, p]) => [j, toWorld(p)]));
     clear(data);
@@ -293,9 +298,9 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
     ok: true, camera, controls, canvas, render, onFrame, setData, pick, preview, animateCamera,
     setFocus: j => { if (j === focus) return; focus = j; paint(); }, // model index or null
     setOrbit: on => { controls.enabled = on; },
-    setInsets: ({ left = 0, bottom = 0 }) => {
-      if (left === insets.left && bottom === insets.bottom) return;
-      insets = { left, bottom }; applyView(); render();
+    setInsets: ({ left = 0, right = 0, bottom = 0 }) => {
+      if (left === insets.left && right === insets.right && bottom === insets.bottom) return;
+      insets = { left, right, bottom }; applyView(); render();
     },
     // glide back to the starting view; any drag on the chart takes over immediately
     resetView: duration => {
