@@ -72,3 +72,20 @@ export function companyFacts(models, company, keys) {
   });
   return { count: ms.length, newest, best };
 }
+
+// names reordered by: 'count' (as given: most models first), 'name', 'release' (newest model) or a measure (the company's best model on it).
+// Companies with nothing to rank by go last, in their given order.
+export function sortCompanies(models, names, by) {
+  if (by === 'count') return [...names];
+  if (by === 'name') return [...names].sort((a, b) => a.localeCompare(b));
+  const s = by === 'release' ? 1 : betterSign(by), best = new Map(); // release dates are ISO strings: they compare like numbers
+  for (const m of models) {
+    const v = m[by], b = best.get(m.company);
+    if (v != null && (b == null || (s > 0 ? v > b : v < b))) best.set(m.company, v);
+  }
+  return [...names].sort((a, b) => {
+    const x = best.get(a), y = best.get(b);
+    if (x == null || y == null) return (x == null) - (y == null);
+    return x === y ? 0 : (s > 0 ? x < y : x > y) ? 1 : -1;
+  });
+}

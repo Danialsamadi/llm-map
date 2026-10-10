@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { COMPANIES, companyFacts } from '../public/companies.js';
+import { COMPANIES, companyFacts, sortCompanies } from '../public/companies.js';
 
 const models = [
   { name: 'Acme Big', company: 'Acme', release: '2025-03-01', intelligence: 40, cost: 2.5, speed: 100, agi: null },
@@ -33,4 +33,15 @@ test('every company has an https website and a one-sentence description in Engli
     assert.ok(url.startsWith('https://'), `${co}: ${url}`);
     assert.ok(typeof about === 'string' && about.length > 1 && about.endsWith('.'), `${co}: ${about}`);
   }
+});
+
+test('sorting companies: by name, newest model, or their best model on a measure; companies without one go last', () => {
+  const ms = [...models, { name: 'Gamma One', company: 'Gamma', release: '2024-01-01', intelligence: 50, cost: 1, speed: 50, agi: null }];
+  const names = ['Acme', 'Beta', 'Gamma']; // most models first: the list's usual order
+  assert.deepEqual(sortCompanies(ms, names, 'count'), ['Acme', 'Beta', 'Gamma']);
+  assert.deepEqual(sortCompanies(ms, ['Gamma', 'Beta', 'Acme'], 'name'), ['Acme', 'Beta', 'Gamma']);
+  assert.deepEqual(sortCompanies(ms, names, 'release'), ['Beta', 'Acme', 'Gamma']);
+  assert.deepEqual(sortCompanies(ms, names, 'intelligence'), ['Beta', 'Gamma', 'Acme']);
+  assert.deepEqual(sortCompanies(ms, names, 'cost'), ['Beta', 'Acme', 'Gamma']); // lower is better
+  assert.deepEqual(sortCompanies(ms, names, 'agi'), ['Beta', 'Acme', 'Gamma']); // only Beta has a score; the rest keep their order
 });

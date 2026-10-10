@@ -105,7 +105,9 @@
   .seg { display: flex; gap: 2px; padding: 2px; margin: 0 2px 8px; border-radius: 9px; background: var(--fill); }
   .seg button { flex: 1; padding: 4px 0; border: 0; border-radius: 7px; background: none; font-size: 13px; font-weight: 500; cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--panel); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / .12), 0 0 0 .5px var(--hair); }
-  #q { width: calc(100% - 4px); margin: 0 2px 6px; padding: 7px 10px; border: 0; border-radius: 9px; background: var(--fill); }
+  .find { display: flex; gap: 6px; margin: 0 2px 6px; }
+  #q { flex: 1; min-width: 0; padding: 7px 10px; border: 0; border-radius: 9px; background: var(--fill); }
+  #sort { width: auto; flex: none; padding: 7px 8px; border-radius: 9px; }
   #q::placeholder { color: var(--slate); }
   .co-row { display: flex; gap: 2px; }
   .co { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
@@ -326,7 +328,14 @@
       <div class="seg" role="group" aria-label="Quick pick" data-t-label="pick.group">
         <button data-pick="top" aria-pressed="false" data-t="pick.top">Top 5</button><button data-pick="all" aria-pressed="false" data-t="pick.all">All</button><button data-pick="none" aria-pressed="false" data-t="pick.none">None</button>
       </div>
-      <input id="q" type="search" placeholder="Search" aria-label="Search companies" data-t-ph="search" data-t-label="search.aria">
+      <div class="find">
+        <input id="q" type="search" placeholder="Search" aria-label="Search companies" data-t-ph="search" data-t-label="search.aria">
+        <select id="sort" aria-label="Sort companies" data-t-label="sort.aria">
+          <option value="count" data-t="sort.count">Most models</option><option value="name" data-t="sort.name">Name</option><option value="release" data-t="sort.release">Newest model</option>
+          <option value="intelligence" data-t="sort.intelligence">Smartest model</option><option value="cost" data-t="sort.cost">Cheapest to run</option><option value="price" data-t="sort.price">Lowest price</option>
+          <option value="speed" data-t="sort.speed">Fastest model</option><option value="agi" data-t="sort.agi">Best on ARC-AGI-2</option>
+        </select>
+      </div>
       <div id="cos-list" role="group" aria-labelledby="h-cos"></div>
     </section>
   </div>

@@ -4,7 +4,7 @@ import { readSV, writeSV, FLY_START, percentile } from './space.js';
 import { t, fmt, rankWord, verdict } from './i18n.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
-import { COMPANIES, companyFacts } from './companies.js';
+import { COMPANIES, companyFacts, sortCompanies } from './companies.js';
 
 const lang = document.documentElement.lang === 'fa' ? 'fa' : 'en'; // decided before first paint by index.html's head script
 const tr = (k, v) => t(lang, k, v), f = fmt(lang), rtl = lang === 'fa';
@@ -164,6 +164,7 @@ function renderPicker() {
     info.onclick = () => showCompany(co, info);
     $('cos-list').append(el('div', { className: 'co-row' }, row, info)); // the button sits beside the label: inside it, it would join the checkbox's name
   }
+  $('sort').onchange = () => $('cos-list').append(...sortCompanies(data.models, names, $('sort').value).map(co => boxes.get(co).closest('.co-row'))); // only the order changes: Top 5 and colours stay by model count
   $('q').oninput = () => { const q = $('q').value.toLowerCase(); for (const [co, cb] of boxes) cb.closest('.co-row').hidden = !co.toLowerCase().includes(q); };
   for (const b of document.querySelectorAll('.seg button')) b.onclick = () => {
     picked = new Set(b.dataset.pick === 'all' ? names : b.dataset.pick === 'top' ? names.slice(0, TOP) : []);
