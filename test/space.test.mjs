@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier } from '../public/space.js';
+import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, leaders } from '../public/space.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -196,4 +196,14 @@ test('best trade-offs stand out; a focused dot or a Street View drop wins over t
   assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], null, null, best), { scale: [1, 1.6, 1], alpha: [0.18, 1, 0.18], lines: [0.08, 0.08] });
   assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], 7, null, best), emphasis([3, 5, 7], ['A', 'B'], 7, null));
   assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], null, { kind: 'line', company: 'B' }, best), emphasis([3, 5, 7], ['A', 'B'], null, { kind: 'line', company: 'B' }));
+});
+
+test('comparing models: who leads each measure, only when one model clearly does', () => {
+  const ms = [
+    { intelligence: 57, cost: 6, speed: 98, agi: null, release: '2026-09-22' },
+    { intelligence: 41, cost: 1.2, speed: 128, agi: 89, release: '2026-09-02' },
+    { intelligence: 21, cost: 0.01, speed: 128, agi: null, release: '2026-07-09' },
+  ];
+  assert.deepEqual(leaders(ms, ['intelligence', 'cost', 'speed', 'agi', 'release']), [['intelligence', 0], ['cost', 2], ['release', 0]]);
+  // speed: a tie, so nobody leads; agi: only one model has a score, so there is nothing to compare
 });

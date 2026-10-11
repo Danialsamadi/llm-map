@@ -189,3 +189,14 @@ export function readRanges(p, kinds) {
   }
   return out;
 }
+
+// Comparing a few models: [key, index] for each key where one model alone is best (at least two have a value; ties lead nowhere).
+export function leaders(models, keys) {
+  const v = (m, k) => betterSign(k) * (typeof m[k] === 'string' ? Date.parse(m[k]) : m[k]);
+  return keys.flatMap(k => {
+    const has = models.map((m, i) => [i, m[k]]).filter(([, x]) => x != null);
+    if (has.length < 2) return [];
+    const top = Math.max(...has.map(([i]) => v(models[i], k))), at = has.filter(([i]) => v(models[i], k) === top);
+    return at.length === 1 ? [[k, at[0][0]]] : [];
+  });
+}

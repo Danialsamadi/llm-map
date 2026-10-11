@@ -229,7 +229,7 @@
   #card .badge.low { background: #b8322a; }
   #card .best { margin: -4px 0 12px; color: var(--slate); font-size: 13px; line-height: 1.4; }
   #card .best b { color: var(--ink); }
-  #card .pin { width: 100%; margin-top: 10px; padding: 9px 12px; border: 0; border-radius: 10px; background: var(--fill); color: var(--signal); font-weight: 600; cursor: pointer; }
+  #card .pin { margin: -4px 0 12px; padding: 5px 12px; border: 0; border-radius: 999px; background: var(--fill); color: var(--signal); font-size: 13px; font-weight: 600; cursor: pointer; }
   #card .pin:disabled { color: var(--slate); cursor: default; }
 
   /* best trade-offs: a switch under the questions */
@@ -266,6 +266,11 @@
   body.sv-on #tray { display: none; }
   #pinDialog { width: min(640px, calc(100vw - 32px)); }
   .pin-wrap { overflow-x: auto; margin: 0 -8px; }
+  #pinSum h3 { margin: 4px 0 6px; font-size: 13px; font-weight: 600; color: var(--slate); }
+  #pinSum ul { list-style: none; margin: 0 0 14px; padding: 0; }
+  #pinSum li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; padding: 6px 0; border-top: .5px solid var(--rule); }
+  #pinSum li span { color: var(--slate); }
+  #pinSum li b { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink); }
   #pinTable { width: 100%; border-collapse: collapse; font-size: 14px; }
   #pinTable th, #pinTable td { padding: 9px 8px; text-align: start; vertical-align: top; border-top: .5px solid var(--rule); }
   #pinTable thead th { border-top: 0; color: var(--ink); font-weight: 700; }
@@ -315,7 +320,7 @@
   #tourNext { min-width: 96px; }
 
   /* ---------- Street View ---------- */
-  #svMenu, #svHint { position: fixed; inset-inline-end: 12px; top: 156px; z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(300px, calc(100% - 24px)); padding: 8px; border-radius: 14px; transform-origin: top right; animation: arrive .24s cubic-bezier(.2, .9, .25, 1); }
+  #svMenu, #svHint { position: fixed; inset-inline-end: 12px; top: 198px; z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(300px, calc(100% - 24px)); padding: 8px; border-radius: 14px; transform-origin: top right; animation: arrive .24s cubic-bezier(.2, .9, .25, 1); }
   #svMenu p { margin: 2px 8px 4px; color: var(--slate); font-size: 13px; font-weight: 600; }
   #svMenu button { padding: 9px 12px; border: 0; border-radius: 9px; background: none; text-align: start; cursor: pointer; }
   #svMenu button:hover { background: var(--fill); }
@@ -382,7 +387,7 @@
     #svPanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 45%; border-radius: 16px 16px 0 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
     #svControls { inset-inline-start: 12px; max-width: calc(100% - 24px); bottom: calc(16px + env(safe-area-inset-bottom)); }
     #svGuide { top: 84px; inset-inline-end: 8px; bottom: auto; width: 100px; height: 100px; } /* clears a three-line "Now passing" title */
-    #svMenu, #svHint { top: 156px; }
+    #svMenu, #svHint { top: 198px; } /* level with the figure, the fifth control: 16 + 4 × 42 + 14 */
   }
   @media (min-width: 700px) { .peek { display: none; } }
   [dir=rtl] #svMenu, [dir=rtl] #svHint { transform-origin: top left; } /* they grow out of the control stack's corner */
@@ -483,6 +488,7 @@
 
 <dialog id="pinDialog" aria-labelledby="pin-h">
   <form method="dialog" class="dialog-head"><h2 id="pin-h" data-t="pin.h">Compare models</h2><button class="btn" data-t="about.done">Done</button></form>
+  <div id="pinSum"></div>
   <div class="pin-wrap"><table id="pinTable"></table></div>
 </dialog>
 

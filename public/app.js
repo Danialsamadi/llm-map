@@ -1,6 +1,6 @@
 // Page logic: data, questions, companies, details card, About dialog and the link. The 3D view is scene.js.
 import { createScene } from './scene.js';
-import { readSV, writeSV, FLY_START, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, betterSign } from './space.js';
+import { readSV, writeSV, FLY_START, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, betterSign, leaders } from './space.js';
 import { t, fmt, rankWord, verdict } from './i18n.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
@@ -81,7 +81,7 @@ const sheetHeights = () => [document.querySelector('#rail .grip').offsetHeight, 
 const sheet = createSheet($('rail'), { detents: sheetHeights, grip: '.grip', enabled: () => mq.matches });
 const contentHeight = node => { const prev = node.style.height; node.style.height = 'auto'; const h = node.scrollHeight; node.style.height = prev; return h; };
 const cardSheet = createSheet($('card'), {
-  detents: () => [Math.min(contentHeight($('card')) + 1, Math.round(innerHeight * 0.72))], // +1: scrollHeight rounds, and half a pixel short makes the body scroll
+  detents: () => [Math.min(contentHeight($('card')) + 1, Math.round(innerHeight * 0.72), Math.round(innerHeight - $('ctrls').getBoundingClientRect().bottom - 8))], // +1: scrollHeight rounds, and half a pixel short makes the body scroll; the last: never up under the control buttons
   grip: '#card .grabber, #card .head', enabled: () => mq.matches, onDismiss: () => hideCard({ instant: true }),
 });
 
@@ -303,7 +303,7 @@ function openCard(head, body, ax, ay) {
   card.hidden = false;
   document.body.classList.add('card-on'); // phones: the card stands in for the rail, which fades out
   if (mq.matches) {
-    card.style.left = card.style.top = card.style.transformOrigin = '';
+    card.style.left = card.style.top = card.style.transformOrigin = card.style.maxHeight = '';
     if (wasOpen) cardSheet.layout(); // new content: resize to it
     else { cardSheet.reset(); cardSheet.open(0); } // rises from the bottom on a spring
     return;
@@ -320,9 +320,11 @@ function openCard(head, body, ax, ay) {
 
 // desktop: inside the window and clear of the rail (which is on the right in Persian)
 function placeCard(left, top) {
-  const card = $('card'), r = $('rail').getBoundingClientRect();
+  const card = $('card'), r = $('rail').getBoundingClientRect(), tray = $('tray').hidden ? null : $('tray').querySelector('.tray-box').getBoundingClientRect();
+  const below = tray?.height ? innerHeight - tray.top + 8 : 12; // room left under the card: above the compare tray when it shows
+  card.style.maxHeight = `calc(100% - ${12 + below}px)`;
   left = Math.max(rtl ? 12 : r.right + 12, Math.min(left, (rtl ? r.left - 12 : innerWidth - 12) - card.offsetWidth));
-  top = Math.max(12, Math.min(top, innerHeight - 12 - card.offsetHeight));
+  top = Math.max(12, Math.min(top, innerHeight - below - card.offsetHeight));
   Object.assign(card.style, { left: left + 'px', top: top + 'px' });
   return { left, top };
 }
@@ -344,10 +346,10 @@ function showCard(i) {
   co.onclick = () => showCompany(m.company);
   const p = scene.worldOf(i)?.clone().project(scene.camera); // grows out of the dot
   openCard([el('h3', { textContent: m.name }),
-    el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [tr('released', { date: MEASURES.release.fmt(m.release) })] : [])))],
+    el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [tr('released', { date: MEASURES.release.fmt(m.release) })] : []))), pinButton(i)], // in the title area, which never scrolls: always in sight
   [el('p', { className: 'verdict', textContent: verdict(lang, ranks) }),
     ...(best.has(i) ? [el('p', { className: 'best' }, el('b', { textContent: tr('best.cardLead') + ' ' }), tr('best.card'))] : []),
-    el('div', { className: 'stats' }, ...stats), pinButton(i)],
+    el('div', { className: 'stats' }, ...stats)],
   p ? ((p.x + 1) / 2) * innerWidth : innerWidth - 40, p ? ((1 - p.y) / 2) * innerHeight : innerHeight - 40);
 }
 
@@ -393,6 +395,7 @@ function renderTray() {
   }));
   $('pinOpen').textContent = tr(pinned.length < 2 ? 'pin.more' : 'pin.open');
   $('pinOpen').disabled = pinned.length < 2;
+  if (!$('card').hidden && !mq.matches) placeCard($('card').offsetLeft, $('card').offsetTop); // the tray came or went: keep the card clear of it
 }
 $('pinOpen').onclick = () => {
   const chosen = pinned.map(i => data.models[i]);
@@ -408,6 +411,9 @@ $('pinOpen').onclick = () => {
     }));
   });
   $('pinTable').replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
+  const lead = leaders(chosen, Object.keys(MEASURES)); // one line per measure a single model wins: how they differ at a glance
+  $('pinSum').replaceChildren(...(lead.length ? [el('h3', { textContent: tr('pin.diff') }),
+    el('ul', {}, ...lead.map(([k, j]) => el('li', {}, el('span', { textContent: tr('sort.' + k) }), el('b', {}, dot(chosen[j].company), el('bdi', { textContent: chosen[j].name })))))] : []));
   $('pinDialog').showModal();
 };
 
