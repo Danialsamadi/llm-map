@@ -265,21 +265,26 @@
   #pinOpen:disabled { background: var(--fill-strong); color: var(--slate); cursor: default; }
   body.sv-on #tray { display: none; }
   #pinDialog { width: min(640px, calc(100vw - 32px)); }
-  .pin-wrap { overflow-x: auto; margin: 0 -8px; }
   #pinSum h3 { margin: 4px 0 6px; font-size: 13px; font-weight: 600; color: var(--slate); }
   #pinSum ul { list-style: none; margin: 0 0 14px; padding: 0; }
   #pinSum li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; padding: 6px 0; border-top: .5px solid var(--rule); }
   #pinSum li span { color: var(--slate); }
   #pinSum li b { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink); }
-  #pinTable { width: 100%; border-collapse: collapse; font-size: 14px; }
-  #pinTable th, #pinTable td { padding: 9px 8px; text-align: start; vertical-align: top; border-top: .5px solid var(--rule); }
-  #pinTable thead th { border-top: 0; color: var(--ink); font-weight: 700; }
-  #pinTable thead .dot { display: inline-block; margin-inline-end: 6px; }
-  #pinTable tbody th { color: var(--slate); font-weight: 500; }
-  #pinTable .v { display: block; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-  #pinTable .r { display: block; color: var(--slate); font-size: 12px; }
-  #pinTable td.win { background: var(--signal-soft); }
-  #pinTable td.win .v::after { content: " ★"; color: var(--signal); }
+  /* the comparison: one section per measure, one row per model (name, value and rank, a bar for the rank); no columns to squeeze on a phone */
+  #pinList section { padding: 12px 0 4px; border-top: .5px solid var(--rule); }
+  #pinList h3 { margin: 0 0 8px; color: var(--slate); font-size: 13px; font-weight: 600; }
+  #pinList ul { display: grid; gap: 10px; margin: 0 0 8px; padding: 0; list-style: none; color: var(--ink); } /* dialog lists are dimmed by default */
+  #pinList li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 12px; }
+  #pinList .nm { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-weight: 600; }
+  #pinList .nm .dot { flex: none; align-self: center; }
+  #pinList .nm small { display: block; color: var(--slate); font-size: 12px; font-weight: 500; }
+  #pinList .val { text-align: end; }
+  #pinList .val b { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #pinList .val small { display: block; color: var(--slate); font-size: 12px; }
+  #pinList .star { color: var(--signal); }
+  #pinList .none { color: var(--slate); font-size: 13px; }
+  #pinList .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--fill-strong); overflow: hidden; }
+  #pinList .bar i { display: block; height: 100%; border-radius: 3px; }
   #close { position: absolute; top: 12px; inset-inline-end: 12px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fill); color: var(--slate); cursor: pointer; }
   #close svg { width: 12px; height: 12px; }
 
@@ -489,7 +494,7 @@
 <dialog id="pinDialog" aria-labelledby="pin-h">
   <form method="dialog" class="dialog-head"><h2 id="pin-h" data-t="pin.h">Compare models</h2><button class="btn" data-t="about.done">Done</button></form>
   <div id="pinSum"></div>
-  <div class="pin-wrap"><table id="pinTable"></table></div>
+  <div id="pinList"></div>
 </dialog>
 
 <dialog id="tour" aria-label="Tour of the map" data-t-label="tour.aria">

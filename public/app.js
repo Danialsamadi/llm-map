@@ -1,6 +1,6 @@
 // Page logic: data, questions, companies, details card, About dialog and the link. The 3D view is scene.js.
 import { createScene } from './scene.js';
-import { readSV, writeSV, FLY_START, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, betterSign, leaders } from './space.js';
+import { readSV, writeSV, FLY_START, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, leaders } from './space.js';
 import { t, fmt, rankWord, verdict } from './i18n.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
@@ -399,21 +399,25 @@ function renderTray() {
 }
 $('pinOpen').onclick = () => {
   const chosen = pinned.map(i => data.models[i]);
-  const head = el('tr', {}, el('th'), ...chosen.map(m => el('th', { scope: 'col' }, dot(m.company), m.name)));
-  const rows = Object.keys(MEASURES).map(k => {
-    const meas = MEASURES[k], vals = chosen.map(m => m[k]), s = k === 'release' ? 1 : betterSign(k);
-    const num = v => (typeof v === 'string' ? Date.parse(v) : v), top = Math.max(...vals.filter(v => v != null).map(v => s * num(v)));
-    return el('tr', {}, el('th', { scope: 'row', textContent: meas.tile ?? meas.name }), ...chosen.map((m, j) => {
-      if (vals[j] == null) return el('td', {}, el('span', { className: 'r', textContent: tr('notMeasured') }));
-      const p = k === 'release' ? null : percentile(data.models, m, k);
-      return el('td', { className: s * num(vals[j]) === top ? 'win' : '' }, el('span', { className: 'v', textContent: (meas.short ?? meas.fmt)(vals[j]) }),
-        ...(p == null ? [] : [el('span', { className: 'r', textContent: rankWord(lang, p) })]));
-    }));
-  });
-  $('pinTable').replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
-  const lead = leaders(chosen, Object.keys(MEASURES)); // one line per measure a single model wins: how they differ at a glance
-  $('pinSum').replaceChildren(...(lead.length ? [el('h3', { textContent: tr('pin.diff') }),
-    el('ul', {}, ...lead.map(([k, j]) => el('li', {}, el('span', { textContent: tr('sort.' + k) }), el('b', {}, dot(chosen[j].company), el('bdi', { textContent: chosen[j].name })))))] : []));
+  const name = m => { // "Claude Opus 5.5 (Max, Default Fallback)": the setting goes on a smaller second line
+    const [, base, setting] = m.name.match(/^(.*?)\s*\((.+)\)$/) ?? [, m.name];
+    return el('span', { className: 'nm' }, dot(m.company), el('span', {}, el('bdi', { textContent: base }), ...(setting ? [el('small', { textContent: setting })] : [])));
+  };
+  const lead = new Map(leaders(chosen, Object.keys(MEASURES))); // measure -> the one model that leads it
+  $('pinSum').replaceChildren(...(lead.size ? [el('h3', { textContent: tr('pin.diff') }),
+    el('ul', {}, ...[...lead].map(([k, j]) => el('li', {}, el('span', { textContent: tr('sort.' + k) }), el('b', {}, dot(chosen[j].company), el('bdi', { textContent: chosen[j].name })))))] : []));
+  $('pinList').replaceChildren(...Object.keys(MEASURES).map(k => {
+    const meas = MEASURES[k];
+    return el('section', {}, el('h3', { textContent: meas.tile ?? meas.name }), el('ul', {}, ...chosen.map((m, j) => {
+      if (m[k] == null) return el('li', {}, name(m), el('span', { className: 'none', textContent: tr('notMeasured') }));
+      const p = k === 'release' ? null : percentile(data.models, m, k), fill = el('i');
+      Object.assign(fill.style, { width: p + '%', background: color.get(m.company) });
+      return el('li', {}, name(m),
+        el('span', { className: 'val' }, el('b', { textContent: (meas.short ?? meas.fmt)(m[k]) }, ...(lead.get(k) === j ? [' ', el('span', { className: 'star', role: 'img', 'aria-label': tr('pin.best'), textContent: '★' })] : [])),
+          ...(p == null ? [] : [el('small', { textContent: rankWord(lang, p) })])),
+        ...(p == null ? [] : [el('span', { className: 'bar', 'aria-hidden': 'true' }, fill)]));
+    })));
+  }));
   $('pinDialog').showModal();
 };
 
