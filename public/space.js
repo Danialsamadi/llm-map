@@ -133,7 +133,7 @@ export function writeSV(p, sv) {
   return p;
 }
 
-// ---------- filter ranges: { measure: [lo, hi] } in the measure's own units (ISO date strings for dates) ----------
+// ---------- filter ranges: { measure: [lo, hi] } in the measure's own units (ISO date strings for dates); null is no limit on that side ----------
 const unit = kind => (kind === 'log' ? Math.log10 : kind === 'date' ? Date.parse : Number);
 const fromUnit = (kind, u) => (kind === 'date' ? new Date(u).toISOString().slice(0, 10) : Number((kind === 'log' ? 10 ** u : u).toPrecision(3)));
 
@@ -148,11 +148,14 @@ export function rangeScale(kind, values) {
   };
 }
 
-// Only the chart's axes filter; a model without a value on a filtered axis is outside.
-export const inRanges = (m, ranges, axes) => axes.every(k => !ranges[k] || (m[k] != null && m[k] >= ranges[k][0] && m[k] <= ranges[k][1]));
+// Only the measures in keys filter; a model without a value is outside any range with a limit.
+export const inRanges = (m, ranges, keys) => keys.every(k => {
+  const [lo, hi] = ranges[k] ?? [null, null];
+  return (lo == null && hi == null) || (m[k] != null && (lo == null || m[k] >= lo) && (hi == null || m[k] <= hi));
+});
 
 export function writeRanges(p, ranges, axes) {
-  for (const k of new Set(axes)) if (ranges[k]) p.set(k, ranges[k].join('_'));
+  for (const k of new Set(axes)) if (ranges[k]) p.set(k, ranges[k].map(v => v ?? '').join('_'));
   return p;
 }
 
@@ -162,8 +165,8 @@ export function readRanges(p, kinds) {
   for (const [k, kind] of Object.entries(kinds)) {
     const parts = p.get(k)?.split('_');
     if (parts?.length !== 2) continue;
-    const r = kind === 'date' ? parts : parts.map(Number);
-    if (r.every(v => Number.isFinite(unit(kind)(v))) && r[0] <= r[1]) out[k] = r;
+    const r = parts.map(v => (v === '' ? null : kind === 'date' ? v : Number(v)));
+    if (r.every(v => v == null || Number.isFinite(unit(kind)(v))) && !(r[0] != null && r[1] != null && r[0] > r[1])) out[k] = r;
   }
   return out;
 }

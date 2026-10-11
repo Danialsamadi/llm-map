@@ -153,3 +153,14 @@ test('filter ranges go in the link, one parameter per axis, and come back', () =
   assert.deepEqual(readRanges(p, kinds), { release: ['2025-01-01', '2026-06-01'], price: [0.1, 2] });
   assert.deepEqual(readRanges(new URLSearchParams('price=abc_2&speed=5_1&release=2025-13-99_2026-01-01'), kinds), {}); // junk, reversed, not a date
 });
+
+test('a range can be open at either end: null means no limit on that side', () => {
+  const m = { release: '2025-06-01', agi: null };
+  assert.ok(inRanges(m, { release: ['2025-06-01', null] }, ['release']));
+  assert.ok(!inRanges(m, { release: ['2025-06-02', null] }, ['release']));
+  assert.ok(inRanges(m, { release: [null, '2025-06-01'] }, ['release']));
+  assert.ok(inRanges(m, { agi: [null, null] }, ['agi'])); // no limit at all: even a model without a score stays
+  const p = writeRanges(new URLSearchParams(), { release: ['2025-10-11', null], price: [null, null], speed: [null, 300] }, ['release', 'price', 'speed']);
+  assert.equal(p.toString(), 'release=2025-10-11_&price=_&speed=_300');
+  assert.deepEqual(readRanges(p, { release: 'date', price: 'log', speed: 'linear' }), { release: ['2025-10-11', null], price: [null, null], speed: [null, 300] });
+});
