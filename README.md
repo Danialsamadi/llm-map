@@ -2,7 +2,7 @@
 
 Every AI language model on one 3D chart. Each dot is a model, each line joins one company's models from oldest to newest, and the three axes are whatever you want to compare: smartness, cost, speed, price, ARC-AGI-2 score or release date.
 
-![The LLM map in dark mode: about a hundred models from five companies plotted by smartness, cost per task and speed](docs/screenshot.jpg)
+![The LLM map in dark mode: models from the last year plotted by smartness, cost per task and speed, with the card for Claude Opus 5.5 open](docs/screenshot.png)
 
 ## What you can do
 
