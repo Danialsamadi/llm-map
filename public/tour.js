@@ -31,7 +31,7 @@ const STEPS = [
     ${bar(104, 106, 25, 8, 'var(--ink)', .8)}${bar(152, 106, 25, 8, 'var(--slate)', .6)}`)],
 ];
 
-export function createTour(dialog, { tr, rtl, int }) {
+export function createTour(dialog, { tr, rtl, int, onLang }) {
   const track = dialog.querySelector('.tour-track'), dots = dialog.querySelector('.tour-dots');
   const back = dialog.querySelector('#tourBack'), next = dialog.querySelector('#tourNext'), last = STEPS.length - 1;
   const slides = STEPS.map(([k, art]) => {
@@ -73,6 +73,9 @@ export function createTour(dialog, { tr, rtl, int }) {
   next.onclick = () => (at === last ? dialog.close() : go(at + 1));
   back.onclick = () => go(at - 1);
   dialog.querySelector('#tourSkip').onclick = () => dialog.close();
+  const lang = dialog.querySelector('#tourLang');
+  lang.lang = rtl ? 'en' : 'fa'; // names the other language, in that language
+  lang.onclick = () => onLang(at);
   dialog.addEventListener('keydown', e => {
     const step = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 }[e.key];
     if (step && slides[at + step]) { go(at + step); e.preventDefault(); }
@@ -80,7 +83,7 @@ export function createTour(dialog, { tr, rtl, int }) {
   dialog.addEventListener('close', () => { try { localStorage.setItem('toured', '1'); } catch {} });
 
   return {
-    open() { show(0); dialog.showModal(); track.scrollLeft = 0; next.focus(); },
+    open(i = 0) { show(i); dialog.showModal(); slides[i].scrollIntoView({ inline: 'start', block: 'nearest' }); next.focus(); },
     seen() { try { return localStorage.getItem('toured') === '1'; } catch { return true; } }, // no storage: don't show it on every visit
   };
 }

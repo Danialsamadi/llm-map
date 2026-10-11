@@ -251,8 +251,9 @@
   #tour .slide h2 { margin: 0 0 6px; font-size: 22px; line-height: 1.2; letter-spacing: -0.022em; }
   #tour .slide p { min-height: 4.4em; margin: 0; font-size: 15px; line-height: 1.47; } /* three lines: the buttons don't jump between slides */
   .tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px 22px; }
-  #tourBack, #tourSkip { padding: 6px 2px; border: 0; background: none; color: var(--slate); font-weight: 500; cursor: pointer; }
-  #tourSkip { position: absolute; z-index: 1; top: 26px; inset-inline-end: 34px; padding: 3px 10px; border-radius: 999px; background: var(--glass-thin); font-size: 13px; }
+  #tourBack, #tourSkip, #tourLang { padding: 6px 2px; border: 0; background: none; color: var(--slate); font-weight: 500; cursor: pointer; }
+  #tourSkip, #tourLang { position: absolute; z-index: 1; top: 26px; inset-inline-end: 34px; padding: 3px 10px; border-radius: 999px; background: var(--glass-thin); font-size: 13px; }
+  #tourLang { inset-inline-end: auto; inset-inline-start: 34px; color: var(--ink); }
   .tour-dots { display: flex; gap: 6px; }
   .tour-dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 4px; background: var(--fill-strong); cursor: pointer; transition: width .2s ease, background .2s ease; }
   .tour-dots button[aria-current="step"] { width: 18px; background: var(--ink); }
@@ -418,7 +419,7 @@
 </dialog>
 
 <dialog id="tour" aria-label="Tour of the map" data-t-label="tour.aria">
-  <button id="tourSkip" data-t="tour.skip">Skip</button>
+  <button id="tourSkip" data-t="tour.skip">Skip</button><button id="tourLang" data-t="lang.aria">فارسی</button>
   <div class="tour-track"></div>
   <div class="tour-foot"><button id="tourBack" data-t="tour.back">Back</button><div class="tour-dots"></div><button id="tourNext" class="btn">Next</button></div>
 </dialog>

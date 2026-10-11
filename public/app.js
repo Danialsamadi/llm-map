@@ -48,13 +48,14 @@ for (const e of document.querySelectorAll('[data-t-title]')) e.title = tr(e.data
 for (const e of document.querySelectorAll('[data-t-ph]')) e.placeholder = tr(e.dataset.tPh);
 document.title = tr('brand');
 $('langBtn').lang = rtl ? 'en' : 'fa'; // the button names the other language, in that language
-$('langBtn').onclick = () => { // switch to the other language: remembered, kept in the link, applied by reloading
+const switchLang = () => { // to the other language: remembered, kept in the link, applied by reloading
   const p = new URLSearchParams(location.hash.slice(1));
   try { localStorage.setItem('lang', rtl ? 'en' : 'fa'); } catch {}
   if (rtl) p.delete('lang'); else p.set('lang', 'fa');
   history.replaceState(null, '', '#' + p);
   location.reload();
 };
+$('langBtn').onclick = switchLang;
 
 let data, names, totals, color, picked, axes, question, shownAxes, wantSV = null, hiding = null;
 let ranges = {}; // filter: { measure: [lo, hi] }; only the chart's axes apply
@@ -453,7 +454,8 @@ function layout() {
 // ---------- page chrome ----------
 $('glossary').append(...Object.values(MEASURES).map(m => el('li', {}, el('strong', { textContent: m.name + ': ' }), m.about)));
 $('aboutBtn').onclick = () => $('about').showModal();
-const tour = createTour($('tour'), { tr, rtl, int: f.int });
+const tour = createTour($('tour'), { tr, rtl, int: f.int, onLang: at => { try { sessionStorage.setItem('tourAt', at); } catch {} switchLang(); } });
+const tourAt = () => { try { const at = sessionStorage.getItem('tourAt'); sessionStorage.removeItem('tourAt'); return at == null ? null : +at; } catch { return null; } }; // set when the tour switched language
 $('tourBtn').onclick = () => { $('about').close(); tour.open(); };
 $('homeBtn').onclick = () => scene.ok && scene.resetView(reduced.matches ? 0 : 700);
 $('grabber').onclick = () => sheet.cycle();
@@ -500,7 +502,7 @@ function morph(cover) {
 }
 
 $('loadMsg').textContent = tr('load.models'); // this module only runs once three.js has arrived
-load().then(d => { data = d; $('loadMsg').textContent = tr('load.drawing'); try { init(); } finally { reveal().then(() => tour.seen() || tour.open()); } }, () => {
+load().then(d => { data = d; $('loadMsg').textContent = tr('load.drawing'); try { init(); } finally { reveal().then(() => { const at = tourAt(); if (at != null) tour.open(at); else if (!tour.seen()) tour.open(); }); } }, () => {
   const again = el('button', { className: 'btn', textContent: tr('load.reload') });
   again.onclick = () => location.reload();
   $('loading').replaceChildren(el('p', { textContent: tr('load.failed') }), again);
