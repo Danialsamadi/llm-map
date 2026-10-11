@@ -36,7 +36,7 @@ export function createSheet(el, { detents, grip, enabled = () => true, onMove = 
     if (!enabled() || e.button > 0) return;
     const onGrip = !!e.target.closest(grip);
     if (el.dataset.detent === 'top' && !onGrip) return; // fully open: the content scrolls instead
-    if (!onGrip && e.target.closest('input[type=search], select')) return;
+    if (!onGrip && e.target.closest('input[type=search], input[type=range], select')) return;
     anim?.stop(); // grabbed mid-motion: carry on from where it is
     heights(true);
     drag = { id: e.pointerId, y: e.clientY, h0: h, moved: false, track: tracker() };

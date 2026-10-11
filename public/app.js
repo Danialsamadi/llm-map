@@ -1,6 +1,6 @@
 // Page logic: data, questions, companies, details card, About dialog and the link. The 3D view is scene.js.
 import { createScene } from './scene.js';
-import { readSV, writeSV, FLY_START, percentile } from './space.js';
+import { readSV, writeSV, FLY_START, percentile, rangeScale, inRanges, readRanges, writeRanges } from './space.js';
 import { t, fmt, rankWord, verdict } from './i18n.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
@@ -56,6 +56,7 @@ $('langBtn').onclick = () => { // switch to the other language: remembered, kept
 };
 
 let data, names, totals, color, picked, axes, question, shownAxes, wantSV = null, hiding = null;
+let ranges = {}; // filter: { measure: [lo, hi] }; only the chart's axes apply
 const boxes = new Map(); // company -> its checkbox in the company list
 let sv = null; // Street View, once available
 let hovered = null, selected = null; // model under the pointer; model whose card is open
@@ -137,8 +138,8 @@ function customPicker() {
 }
 
 // what each axis means for the chosen question, under its title (and in the phone sheet's peek)
+const mark = i => el('i', { className: 'ax-mark ax-mark-' + i });
 function renderMeasures() {
-  const mark = i => el('i', { className: 'ax-mark ax-mark-' + i });
   for (const q of QUESTIONS) {
     const ul = $('m-' + q.id);
     if (q.id !== question) { ul.replaceChildren(); continue; }
@@ -149,6 +150,37 @@ function renderMeasures() {
   $('peekQ').textContent = QUESTIONS.find(q => q.id === question).title;
   $('peekKey').replaceChildren(...axes.map((k, i) => el('li', {}, mark(i), MEASURES[k].name)));
 }
+
+// ---------- filter: a min-max slider per axis, on the axis's own scale ----------
+function renderFilters() {
+  $('filters').replaceChildren(...[...new Set(axes)].map(k => {
+    const i = axes.indexOf(k), ms = MEASURES[k], show = ms.short ?? ms.fmt, sc = rangeScale(kindOf(k), data.models.map(m => m[k]));
+    const thumb = (v, key) => el('input', { type: 'range', min: 0, max: 1000, value: Math.round(sc.toPos(v) * 1000), 'aria-label': tr(key, { name: ms.name }) });
+    const v = ranges[k] ? [...ranges[k]] : [sc.fromPos(0), sc.fromPos(1)], a = thumb(v[0], 'filter.min'), b = thumb(v[1], 'filter.max'); // v: the exact range, as in the link
+    const fill = el('i'), val = el('span', { className: 'f-val' });
+    fill.style.background = `var(--ax-${i})`;
+    const paint = () => {
+      Object.assign(fill.style, { insetInlineStart: a.value / 10 + '%', insetInlineEnd: 100 - b.value / 10 + '%' });
+      val.textContent = tr('filter.range', { lo: show(v[0]), hi: show(v[1]) });
+      a.setAttribute('aria-valuetext', show(v[0])); b.setAttribute('aria-valuetext', show(v[1]));
+    };
+    a.oninput = b.oninput = e => {
+      const j = e.target === a ? 0 : 1, other = j ? a : b;
+      const crossed = a.valueAsNumber > b.valueAsNumber;
+      if (crossed) other.value = e.target.value; // pushing past the other handle takes it along
+      v[j] = sc.fromPos(e.target.valueAsNumber / 1000);
+      if (crossed) v[1 - j] = v[j];
+      if (a.valueAsNumber === 0 && b.valueAsNumber === 1000) delete ranges[k]; else ranges[k] = [...v];
+      paint(); resetShown(); writeLink(); draw();
+    };
+    paint();
+    return el('div', { className: 'frow' }, el('div', { className: 'f-head' }, el('span', {}, mark(i), ms.tile ?? ms.name), val),
+      el('div', { className: 'f-range' }, el('span', { className: 'f-track' }, fill), a, b));
+  }));
+  resetShown();
+}
+const resetShown = () => { $('fReset').hidden = !axes.some(k => ranges[k]); };
+$('fReset').onclick = () => { for (const k of axes) delete ranges[k]; change(); };
 
 // ---------- companies ----------
 function renderPicker() {
@@ -187,7 +219,7 @@ function renderCompanies(onChart) {
 
 // ---------- chart ----------
 function draw() {
-  const visible = data.models.flatMap((m, i) => (picked.has(m.company) && axes.every(k => m[k] != null) ? [i] : []));
+  const visible = data.models.flatMap((m, i) => (picked.has(m.company) && axes.every(k => m[k] != null) && inRanges(m, ranges, axes) ? [i] : []));
   if (scene.ok) {
     scene.setData({ models: data.models, visible, axes, kinds: axes.map(kindOf), titles: axes.map(k => (mq.matches ? MEASURES[k].name : MEASURES[k].axis)), colors: color,
       tickLabel: rtl ? tk => (tk.iso ? f.month(tk.iso) : f.digits(tk.label)) : undefined });
@@ -220,6 +252,11 @@ function emptyState(n) {
     box.replaceChildren(el('p', { textContent: tr('empty.pick') }), b);
   } else {
     const theirs = data.models.filter(m => picked.has(m.company));
+    if (theirs.some(m => axes.every(k => m[k] != null))) { // they have models here: the filter hides them all
+      const b = el('button', { className: 'btn', textContent: tr('empty.reset') });
+      b.onclick = () => $('fReset').click();
+      return box.replaceChildren(el('p', { textContent: tr('empty.filtered') }), b);
+    }
     const missing = axes.filter(k => !theirs.some(m => m[k] != null)).map(k => MEASURES[k].name);
     box.replaceChildren(el('p', { textContent: missing.length ? tr('empty.missing', { measures: missing.join(tr('list.or')) }) : tr('empty.missingAll') }));
   }
@@ -339,7 +376,7 @@ $('card').addEventListener('pointerup', drop);
 $('card').addEventListener('pointercancel', drop);
 
 // ---------- state <-> link ----------
-// #x=..&y=..&z=..&c=Company&c=Company[&sv=stand&m=Model | &sv=ride&r=Company | &sv=fly]
+// #x=..&y=..&z=..[&price=lo_hi …one filter range per axis]&c=Company&c=Company[&sv=stand&m=Model | &sv=ride&r=Company | &sv=fly]
 // No c: top 5. c=*: all. c= (empty): none.
 function writeLink() {
   const p = new URLSearchParams({ x: axes[0], y: axes[1], z: axes[2] });
@@ -347,6 +384,7 @@ function writeLink() {
   if (picked.size === names.length) p.append('c', '*');
   else if (!picked.size) p.append('c', '');
   else if (!(picked.size === top.length && top.every(c => picked.has(c)))) for (const c of names.filter(c => picked.has(c))) p.append('c', c);
+  writeRanges(p, ranges, axes);
   writeSV(p, sv?.current());
   if (rtl) p.set('lang', 'fa');
   history.replaceState(null, '', '#' + p);
@@ -358,6 +396,7 @@ function change() {
   shownAxes = [...axes];
   writeLink();
   renderMeasures();
+  renderFilters();
   draw();
 }
 
@@ -368,6 +407,7 @@ function readLink() {
   question = QUESTIONS.find(q => q.axes?.every((k, i) => axes[i] === k))?.id ?? 'custom';
   const c = p.getAll('c'), known = c.filter(n => totals.has(n));
   picked = new Set(c.includes('*') ? names : c.length === 1 && c[0] === '' ? [] : known.length ? known : names.slice(0, TOP));
+  ranges = readRanges(p, Object.fromEntries(Object.keys(MEASURES).map(k => [k, kindOf(k)])));
   wantSV = readSV(p);
 }
 

@@ -132,3 +132,38 @@ export function writeSV(p, sv) {
   if (sv.mode === 'ride') p.set('r', sv.company);
   return p;
 }
+
+// ---------- filter ranges: { measure: [lo, hi] } in the measure's own units (ISO date strings for dates) ----------
+const unit = kind => (kind === 'log' ? Math.log10 : kind === 'date' ? Date.parse : Number);
+const fromUnit = (kind, u) => (kind === 'date' ? new Date(u).toISOString().slice(0, 10) : Number((kind === 'log' ? 10 ** u : u).toPrecision(3)));
+
+// A slider over all of a measure's values: position 0..1 <-> value, on the axis's own scale. The ends are the exact extremes.
+export function rangeScale(kind, values) {
+  const t = unit(kind), vs = values.filter(v => v != null && Number.isFinite(t(v)));
+  const min = vs.reduce((a, v) => (t(v) < t(a) ? v : a), vs[0]), max = vs.reduce((a, v) => (t(v) > t(a) ? v : a), vs[0]);
+  const lo = t(min), hi = t(max);
+  return {
+    toPos: v => (hi === lo ? 0 : Math.max(0, Math.min(1, (t(v) - lo) / (hi - lo)))),
+    fromPos: p => (p <= 0 ? min : p >= 1 ? max : fromUnit(kind, lo + p * (hi - lo))),
+  };
+}
+
+// Only the chart's axes filter; a model without a value on a filtered axis is outside.
+export const inRanges = (m, ranges, axes) => axes.every(k => !ranges[k] || (m[k] != null && m[k] >= ranges[k][0] && m[k] <= ranges[k][1]));
+
+export function writeRanges(p, ranges, axes) {
+  for (const k of new Set(axes)) if (ranges[k]) p.set(k, ranges[k].join('_'));
+  return p;
+}
+
+// kinds: { measure: 'linear' | 'log' | 'date' }; anything unreadable or reversed is dropped
+export function readRanges(p, kinds) {
+  const out = {};
+  for (const [k, kind] of Object.entries(kinds)) {
+    const parts = p.get(k)?.split('_');
+    if (parts?.length !== 2) continue;
+    const r = kind === 'date' ? parts : parts.map(Number);
+    if (r.every(v => Number.isFinite(unit(kind)(v))) && r[0] <= r[1]) out[k] = r;
+  }
+  return out;
+}

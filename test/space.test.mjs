@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile } from '../public/space.js';
+import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rangeScale, inRanges, readRanges, writeRanges } from '../public/space.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -123,4 +123,33 @@ test('percentile: share of measured models beaten, in the better direction; ties
   assert.equal(percentile(ms, B, 'cost'), 50); // cheaper than A and D; the tie with C doesn't count
   assert.equal(percentile(ms, A, 'cost'), 25);
   assert.equal(percentile(ms, D, 'speed'), null);
+});
+
+test('filter sliders: the ends are the exact extremes, the middle follows the axis kind and rounds to 3 figures', () => {
+  const lin = rangeScale('linear', [10, 50, 30, null]);
+  assert.deepEqual([lin.fromPos(0), lin.fromPos(1), lin.fromPos(0.5)], [10, 50, 30]);
+  close(lin.toPos(20), 0.25);
+  const log = rangeScale('log', [0.0123, 1, 100]);
+  assert.deepEqual([log.fromPos(0), log.fromPos(1), log.fromPos(0.123)], [0.0123, 100, 0.0372]);
+  close(log.toPos(1), Math.log10(1 / 0.0123) / Math.log10(100 / 0.0123));
+  const date = rangeScale('date', ['2025-01-01', '2025-01-31']);
+  assert.deepEqual([date.fromPos(0), date.fromPos(0.5), date.fromPos(1)], ['2025-01-01', '2025-01-16', '2025-01-31']);
+  close(date.toPos('2025-01-16'), 0.5);
+});
+
+test('a model passes the filters when each filtered axis has a value inside its range', () => {
+  const m = { intelligence: 40, price: 2, release: '2025-06-01', agi: null };
+  assert.ok(inRanges(m, {}, ['intelligence', 'price', 'agi']));
+  assert.ok(inRanges(m, { intelligence: [40, 50], release: ['2025-01-01', '2025-06-01'] }, ['intelligence', 'release'])); // ends count
+  assert.ok(!inRanges(m, { price: [0.1, 1] }, ['price']));
+  assert.ok(!inRanges(m, { agi: [0, 50] }, ['agi'])); // no score: outside
+  assert.ok(inRanges(m, { price: [0.1, 1] }, ['intelligence'])); // a measure that isn't an axis doesn't filter
+});
+
+test('filter ranges go in the link, one parameter per axis, and come back', () => {
+  const p = writeRanges(new URLSearchParams('x=release'), { price: [0.1, 2], release: ['2025-01-01', '2026-06-01'], speed: [1, 2] }, ['release', 'price', 'intelligence']);
+  assert.equal(p.toString(), 'x=release&release=2025-01-01_2026-06-01&price=0.1_2');
+  const kinds = { release: 'date', price: 'log', speed: 'linear' };
+  assert.deepEqual(readRanges(p, kinds), { release: ['2025-01-01', '2026-06-01'], price: [0.1, 2] });
+  assert.deepEqual(readRanges(new URLSearchParams('price=abc_2&speed=5_1&release=2025-13-99_2026-01-01'), kinds), {}); // junk, reversed, not a date
 });
