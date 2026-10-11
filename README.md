@@ -4,8 +4,6 @@ Every AI language model on one 3D chart. Each dot is a model, each line joins on
 
 ![The LLM map in dark mode: about a hundred models from five companies plotted by smartness, cost per task and speed](docs/screenshot.jpg)
 
-Live site: <https://llm-3d.enaoujneor.workers.dev>
-
 ## What you can do
 
 - **Ask a question.** "Smart, cheap or fast?", "How close to AGI?" and "Are prices falling?" each set the three axes. "Build my own" lets you pick any three measures.
