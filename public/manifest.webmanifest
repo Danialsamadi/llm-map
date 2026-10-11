@@ -1,5 +1,7 @@
 {
+  "id": "/",
   "name": "LLM map",
+  "description": "Every AI language model on one 3D chart: smartness, cost, speed and more.",
   "short_name": "LLM map",
   "start_url": "/",
   "display": "standalone",
