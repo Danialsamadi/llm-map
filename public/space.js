@@ -103,16 +103,35 @@ export function segDist(px, py, ax, ay, bx, by) {
 
 export const FADE = 0.18, FADE_LINE = 0.08; // dot and line opacity while another dot is focused
 
-// How each visible dot and each company line is drawn. A Street View drop preview wins over focus.
+// How each visible dot and each company line is drawn. A Street View drop preview wins over focus, and focus over the best trade-offs.
 // visible: model indices on the chart; lineCompanies: company per line, in line order;
-// focus: model index or null; drop: null | { kind: 'dot', index } | { kind: 'line', company } | { kind: 'floor', point }
-export function emphasis(visible, lineCompanies, focus, drop) {
+// focus: model index or null; drop: null | { kind: 'dot', index } | { kind: 'line', company } | { kind: 'floor', point }; best: Set of model indices or null
+export function emphasis(visible, lineCompanies, focus, drop, best = null) {
   const on = !drop && focus != null && visible.includes(focus) ? focus : null;
+  const lit = drop || on != null || !best?.size ? null : best;
   return {
-    scale: visible.map(j => (drop?.kind === 'dot' && j === drop.index ? 2.2 : j === on ? 2.4 : 1)),
-    alpha: visible.map(j => (on == null || j === on ? 1 : FADE)),
-    lines: lineCompanies.map(c => (drop?.kind === 'line' ? (c === drop.company ? 1 : 0.15) : on != null ? FADE_LINE : 0.9)),
+    scale: visible.map(j => (drop?.kind === 'dot' && j === drop.index ? 2.2 : j === on ? 2.4 : lit?.has(j) ? 1.6 : 1)),
+    alpha: visible.map(j => (on != null ? (j === on ? 1 : FADE) : lit ? (lit.has(j) ? 1 : FADE) : 1)),
+    lines: lineCompanies.map(c => (drop?.kind === 'line' ? (c === drop.company ? 1 : 0.15) : on != null || lit ? FADE_LINE : 0.9)),
   };
+}
+
+// Model search: indices of models whose name has every word of q; exact names first, then names starting with q, then newest.
+export function searchModels(models, q, limit = 6) {
+  const want = q.trim().toLowerCase(), words = want.split(/\s+/);
+  if (want.length < 2) return [];
+  return models.flatMap((m, i) => {
+    const n = m.name.toLowerCase();
+    return words.every(w => n.includes(w)) ? [[i, n === want ? 0 : n.startsWith(want) ? 1 : 2, m.release ?? '']] : [];
+  }).sort((a, b) => a[1] - b[1] || (a[2] < b[2] ? 1 : a[2] > b[2] ? -1 : 0)).slice(0, limit).map(([i]) => i);
+}
+
+// Best trade-offs (the Pareto front): visible models that no other visible model matches or beats on every key and beats on at least one.
+// ponytail: compares every pair, ~500k checks for 700 models; fine at this size.
+export function frontier(models, visible, keys) {
+  const ks = [...new Set(keys)], v = (m, k) => betterSign(k) * (typeof m[k] === 'string' ? Date.parse(m[k]) : m[k]);
+  const beats = (o, m) => ks.every(k => v(o, k) >= v(m, k)) && ks.some(k => v(o, k) > v(m, k));
+  return new Set(visible.filter(j => !visible.some(o => o !== j && beats(models[o], models[j]))));
 }
 
 // Street View part of the link: sv=stand&m=<model> | sv=ride&r=<company> | sv=fly

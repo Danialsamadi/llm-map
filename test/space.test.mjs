@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rangeScale, inRanges, readRanges, writeRanges } from '../public/space.js';
+import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier } from '../public/space.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -163,4 +163,37 @@ test('a range can be open at either end: null means no limit on that side', () =
   const p = writeRanges(new URLSearchParams(), { release: ['2025-10-11', null], price: [null, null], speed: [null, 300] }, ['release', 'price', 'speed']);
   assert.equal(p.toString(), 'release=2025-10-11_&price=_&speed=_300');
   assert.deepEqual(readRanges(p, { release: 'date', price: 'log', speed: 'linear' }), { release: ['2025-10-11', null], price: [null, null], speed: [null, 300] });
+});
+
+test('model search: every word must match; exact names, then names that start with the query, then newest first', () => {
+  const ms = [
+    { name: 'GPT-5.5 (high)', release: '2026-01-10' }, { name: 'Gemini 3.5 Flash', release: '2026-05-01' }, { name: 'Gemini 3.5 Flash-Lite', release: '2026-07-20' },
+    { name: 'Gemini 2.5 Pro', release: '2025-03-01' }, { name: 'Claude Opus 5.5', release: '2026-09-22' },
+  ];
+  assert.deepEqual(searchModels(ms, 'flash gemini'), [2, 1]);
+  assert.deepEqual(searchModels(ms, 'Gemini 3.5 Flash'), [1, 2]);
+  assert.deepEqual(searchModels(ms, 'gemini'), [2, 1, 3]);
+  assert.deepEqual(searchModels(ms, 'gemini', 2), [2, 1]);
+  assert.deepEqual(searchModels(ms, '  OPUS '), [4]);
+  assert.deepEqual([searchModels(ms, 'g'), searchModels(ms, 'llama')], [[], []]); // one letter is too little to list models
+});
+
+test('best trade-offs: the visible models no other visible model beats on every axis, in each axis\'s better direction', () => {
+  const ms = [
+    { intelligence: 50, cost: 1, speed: 100 }, // A
+    { intelligence: 40, cost: 0.5, speed: 100 }, // B: cheapest
+    { intelligence: 40, cost: 1, speed: 90 }, // C: A is smarter, as cheap and faster
+    { intelligence: 60, cost: 5, speed: 50 }, // D: smartest
+    { intelligence: 50, cost: 1, speed: 100 }, // E: the same as A, so neither beats the other
+  ];
+  const keys = ['intelligence', 'cost', 'speed'];
+  assert.deepEqual([...frontier(ms, [0, 1, 2, 3, 4], keys)].sort(), [0, 1, 3, 4]);
+  assert.deepEqual([...frontier(ms, [2, 3], keys)].sort(), [2, 3]); // only what is on the chart counts
+});
+
+test('best trade-offs stand out; a focused dot or a Street View drop wins over them', () => {
+  const best = new Set([5]);
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], null, null, best), { scale: [1, 1.6, 1], alpha: [0.18, 1, 0.18], lines: [0.08, 0.08] });
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], 7, null, best), emphasis([3, 5, 7], ['A', 'B'], 7, null));
+  assert.deepEqual(emphasis([3, 5, 7], ['A', 'B'], null, { kind: 'line', company: 'B' }, best), emphasis([3, 5, 7], ['A', 'B'], null, { kind: 'line', company: 'B' }));
 });
