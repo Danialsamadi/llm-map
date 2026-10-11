@@ -7,12 +7,15 @@ Every AI language model on one 3D chart. Each dot is a model, each line joins on
 ## What you can do
 
 - **Ask a question.** "Smart, cheap or fast?", "How close to AGI?" and "Are prices falling?" each set the three axes. "Build my own" lets you pick any three measures.
+- **See the best trade-offs.** A switch lights up the models that nothing else on the chart beats on all three axes, and dims the rest. Their cards say so too.
 - **Open a model.** Click or tap a dot. The card sums the model up in one sentence, then ranks it against every other model on each measure with a coloured bar and a badge such as "Top 1%".
+- **Find a model.** Type part of its name in the search box, such as "opus" or "gemini flash". Picking a result shows its company and widens any filter that hides it, then flies the camera to its dot and opens its card.
+- **Compare models.** Add up to three models from their cards. A tray collects them, and Compare opens a table of their numbers and ranks side by side, with the best value in each row starred.
 - **Read about a company.** A company card gives a short overview, a link to its website, its model count and its best model on each measure.
 - **Filter by range.** Every axis has a two-handle slider, so you can keep only models under $1 per task or faster than 100 tokens a second. The chart refits to what is left. Release date always has a slider too: the map starts with models released in the last year, and you can widen it to any date back to the first model.
 - **Choose companies.** Tick them on and off, or pick Top 5, All or None. Search the list, or sort it by model count, name, newest model or best score.
 - **Step inside the chart.** Drag the yellow figure onto a dot to stand beside that model, onto a line to ride through a company's history, or onto the floor to fly around.
-- **Share the view.** The link in the address bar holds your question, filters, companies and Street View position, so whoever opens it sees exactly what you see.
+- **Share the view.** The link in the address bar holds your question, filters, companies, best-trade-off switch, compared models and Street View position, so whoever opens it sees exactly what you see.
 - **Read it in Persian.** The language button switches the whole interface to Persian, laid out right to left, with Persian digits and the Solar Hijri calendar.
 - **Install it.** It is a progressive web app with its own icon. After one visit it opens offline with the last data it saw.
 
