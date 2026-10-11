@@ -9,7 +9,7 @@ Every AI language model on one 3D chart. Each dot is a model, each line joins on
 - **Ask a question.** "Smart, cheap or fast?", "How close to AGI?" and "Are prices falling?" each set the three axes. "Build my own" lets you pick any three measures.
 - **Open a model.** Click or tap a dot. The card sums the model up in one sentence, then ranks it against every other model on each measure with a coloured bar and a badge such as "Top 1%".
 - **Read about a company.** A company card gives a short overview, a link to its website, its model count and its best model on each measure.
-- **Filter by range.** Every axis has a two-handle slider, so you can keep only models under $1 per task or faster than 100 tokens a second. The chart refits to what is left.
+- **Filter by range.** Every axis has a two-handle slider, so you can keep only models under $1 per task or faster than 100 tokens a second. The chart refits to what is left. Release date always has a slider too: the map starts with models released in the last year, and you can widen it to any date back to the first model.
 - **Choose companies.** Tick them on and off, or pick Top 5, All or None. Search the list, or sort it by model count, name, newest model or best score.
 - **Step inside the chart.** Drag the yellow figure onto a dot to stand beside that model, onto a line to ride through a company's history, or onto the floor to fly around.
 - **Share the view.** The link in the address bar holds your question, filters, companies and Street View position, so whoever opens it sees exactly what you see.
@@ -88,3 +88,7 @@ No framework and no build step. The browser loads the modules in `public/` direc
 | `public/sheet.js`, `public/spring.js` | The phone bottom sheets and their spring motion |
 | `public/tour.js` | The first-visit tour |
 | `public/sw.js` | Offline support |
+
+## License
+
+The code is under the [MIT License](LICENSE). The model data belongs to [Artificial Analysis](https://artificialanalysis.ai/) and the [ARC Prize](https://arcprize.org/) and follows their terms.
