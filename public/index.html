@@ -227,6 +227,54 @@
   #card .badge.good { background: #1f7a45; } /* white text at 11px needs ≥4.5:1: these are 5.3, 6.0 and 6.0 */
   #card .badge.mid { background: #636366; }
   #card .badge.low { background: #b8322a; }
+  #card .best { margin: -4px 0 12px; color: var(--slate); font-size: 13px; line-height: 1.4; }
+  #card .best b { color: var(--ink); }
+  #card .pin { width: 100%; margin-top: 10px; padding: 9px 12px; border: 0; border-radius: 10px; background: var(--fill); color: var(--signal); font-weight: 600; cursor: pointer; }
+  #card .pin:disabled { color: var(--slate); cursor: default; }
+
+  /* best trade-offs: a switch under the questions */
+  .switch { display: flex; align-items: flex-start; gap: 10px; margin-top: 6px; padding: 8px 12px; border-radius: 12px; cursor: pointer; }
+  .switch:hover { background: var(--fill); }
+  .switch input { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 36px; height: 22px; margin: 1px 0 0; border-radius: 11px; background: var(--fill-strong); cursor: pointer; transition: background .2s ease; }
+  .switch input::after { content: ""; position: absolute; top: 2px; inset-inline-start: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .3); transition: inset-inline-start .2s ease; }
+  .switch input:checked { background: var(--signal); }
+  .switch input:checked::after { inset-inline-start: 16px; }
+  .switch input:focus-visible { outline: 3px solid color-mix(in srgb, var(--signal) 55%, transparent); }
+  .switch b { display: block; font-size: 15px; font-weight: 600; }
+  .switch small { display: block; margin-top: 1px; color: var(--slate); font-size: 12px; line-height: 1.35; letter-spacing: 0; }
+
+  /* model search results, above the company list */
+  #hits { display: flex; flex-direction: column; gap: 1px; margin: 0 2px 8px; padding-bottom: 8px; border-bottom: .5px solid var(--rule); }
+  #hits h3 { margin: 2px 8px 4px; color: var(--slate); font-size: 12px; font-weight: 600; }
+  .hit { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border: 0; border-radius: 9px; background: none; text-align: start; cursor: pointer; }
+  .hit:hover, .hit:focus-visible { background: var(--fill); }
+  .hit span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hit small { margin-inline-start: auto; flex: none; color: var(--slate); font-size: 12px; }
+
+  /* compare: a tray of pinned models over the chart, and a table */
+  #tray { position: fixed; z-index: 7; bottom: 16px; inset-inline: var(--rail) 12px; display: flex; justify-content: center; pointer-events: none; }
+  .tray-box { display: flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px; border-radius: 999px; pointer-events: auto; }
+  #trayChips { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; } /* one row: more chips than fit scroll sideways */
+  #trayChips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; display: flex; align-items: center; gap: 6px; max-width: min(220px, 55vw); padding: 4px 4px 4px 10px; border-radius: 999px; background: var(--fill); font-size: 13px; }
+  [dir=rtl] .chip { padding: 4px 10px 4px 4px; }
+  .chip > button:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: none; font-weight: 600; cursor: pointer; }
+  .chip .x { flex: none; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fill-strong); color: var(--slate); cursor: pointer; }
+  .chip .x svg { width: 10px; height: 10px; }
+  #pinOpen { flex: none; padding: 6px 14px; font-size: 14px; }
+  #pinOpen:disabled { background: var(--fill-strong); color: var(--slate); cursor: default; }
+  body.sv-on #tray { display: none; }
+  #pinDialog { width: min(640px, calc(100vw - 32px)); }
+  .pin-wrap { overflow-x: auto; margin: 0 -8px; }
+  #pinTable { width: 100%; border-collapse: collapse; font-size: 14px; }
+  #pinTable th, #pinTable td { padding: 9px 8px; text-align: start; vertical-align: top; border-top: .5px solid var(--rule); }
+  #pinTable thead th { border-top: 0; color: var(--ink); font-weight: 700; }
+  #pinTable thead .dot { display: inline-block; margin-inline-end: 6px; }
+  #pinTable tbody th { color: var(--slate); font-weight: 500; }
+  #pinTable .v { display: block; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  #pinTable .r { display: block; color: var(--slate); font-size: 12px; }
+  #pinTable td.win { background: var(--signal-soft); }
+  #pinTable td.win .v::after { content: " ★"; color: var(--signal); }
   #close { position: absolute; top: 12px; inset-inline-end: 12px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fill); color: var(--slate); cursor: pointer; }
   #close svg { width: 12px; height: 12px; }
 
@@ -321,6 +369,8 @@
     .brand h1 { display: none; }
     .brand { order: 9; } /* status line at the end of the sheet */
     body.sv-on #rail, body.card-on #rail { opacity: 0; pointer-events: none; }
+    #tray { inset-inline: 12px; bottom: calc(var(--sheet, 140px) + 10px); }
+    body.card-on #tray { display: none; }
     #empty { inset: 0 0 var(--sheet, 140px) 0; }
     #card { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; will-change: transform; }
     #card { display: flex; flex-direction: column; }
@@ -352,6 +402,7 @@
   <div id="dropLabel" hidden></div>
   <div id="empty" hidden></div>
   <article id="card" class="glass" hidden aria-live="polite"></article>
+  <div id="tray" hidden><div class="tray-box glass" role="group" aria-label="Models to compare" data-t-label="pin.tray"><div id="trayChips"></div><button id="pinOpen" class="btn"></button></div></div>
 </main>
 
 <aside id="rail" class="glass" aria-label="Controls" data-t-label="rail.aria">
@@ -364,6 +415,7 @@
     <section aria-labelledby="h-ask">
       <h2 id="h-ask" data-t="h.question">Question</h2>
       <div id="questions" role="radiogroup" aria-labelledby="h-ask"></div>
+      <label class="switch"><input type="checkbox" id="bestT" role="switch"><span><b data-t="best.label">Highlight best trade-offs</b><small id="bestNote"></small></span></label>
     </section>
     <section aria-labelledby="h-filter">
       <div class="cos-head"><h2 id="h-filter" data-t="h.filter">Filter</h2><button id="fReset" hidden data-t="filter.reset">Reset</button></div>
@@ -382,6 +434,7 @@
           <option value="speed" data-t="sort.speed">Fastest model</option><option value="agi" data-t="sort.agi">Best on ARC-AGI-2</option>
         </select>
       </div>
+      <div id="hits" hidden></div>
       <div id="cos-list" role="group" aria-labelledby="h-cos"></div>
     </section>
   </div>
@@ -426,6 +479,11 @@
   <h2 data-t="about.sources">Where the numbers come from</h2>
   <p><span data-t="about.src1">Smartness, cost, price, speed and release dates come from </span><a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a><span data-t="about.src2">. ARC-AGI-2 scores come from the </span><a href="https://arcprize.org/leaderboard" target="_blank" rel="noopener" data-t="about.arcLink">ARC Prize leaderboard</a><span data-t="about.src3"> and are matched to the same model and effort setting; models ARC hasn't tested have no score.</span></p>
   <p id="about-status"></p>
+</dialog>
+
+<dialog id="pinDialog" aria-labelledby="pin-h">
+  <form method="dialog" class="dialog-head"><h2 id="pin-h" data-t="pin.h">Compare models</h2><button class="btn" data-t="about.done">Done</button></form>
+  <div class="pin-wrap"><table id="pinTable"></table></div>
 </dialog>
 
 <dialog id="tour" aria-label="Tour of the map" data-t-label="tour.aria">

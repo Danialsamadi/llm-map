@@ -1,6 +1,6 @@
 // Page logic: data, questions, companies, details card, About dialog and the link. The 3D view is scene.js.
 import { createScene } from './scene.js';
-import { readSV, writeSV, FLY_START, percentile, rangeScale, inRanges, readRanges, writeRanges } from './space.js';
+import { readSV, writeSV, FLY_START, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, betterSign } from './space.js';
 import { t, fmt, rankWord, verdict } from './i18n.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
@@ -62,6 +62,9 @@ let ranges = {}; // filter: { measure: [lo, hi] }; the chart's axes and release 
 const boxes = new Map(); // company -> its checkbox in the company list
 let sv = null; // Street View, once available
 let hovered = null, selected = null; // model under the pointer; model whose card is open
+let lightBest = false, best = new Set(); // the best-trade-offs switch; the models on the chart nothing beats on all three axes
+let pinned = []; // models to compare (indices), at most PIN_MAX
+const PIN_MAX = 3;
 
 const scene = createScene($('chart'), {
   onHover: (i, x, y) => { hovered = i; refocus(); tip(i, x, y); },
@@ -204,7 +207,19 @@ function renderPicker() {
     $('cos-list').append(el('div', { className: 'co-row' }, row, info)); // the button sits beside the label: inside it, it would join the checkbox's name
   }
   $('sort').onchange = () => $('cos-list').append(...sortCompanies(data.models, names, $('sort').value).map(co => boxes.get(co).closest('.co-row'))); // only the order changes: Top 5 and colours stay by model count
-  $('q').oninput = () => { const q = $('q').value.toLowerCase(); for (const [co, cb] of boxes) cb.closest('.co-row').hidden = !co.toLowerCase().includes(q); };
+  $('q').oninput = () => {
+    const q = $('q').value.toLowerCase(), hits = searchModels(data.models, q);
+    $('q').dir = q ? 'auto' : ''; // typed text sets its own direction; the empty box keeps the page's, for the placeholder
+    for (const [co, cb] of boxes) cb.closest('.co-row').hidden = !co.toLowerCase().includes(q);
+    $('hits').hidden = !hits.length;
+    $('hits').replaceChildren(el('h3', { textContent: tr('hits.h') }), ...hits.map(i => {
+      const m = data.models[i], b = el('button', { className: 'hit' }, dot(m.company), el('span', { textContent: m.name, dir: 'auto' }), el('small', { textContent: m.company }));
+      b.onclick = () => pickModel(i);
+      return b;
+    }));
+  };
+  $('q').onkeydown = e => { if (e.key === 'Enter') $('hits').querySelector('.hit')?.click(); };
+  $('bestT').onchange = () => { lightBest = $('bestT').checked; writeLink(); draw(); };
   for (const b of document.querySelectorAll('.seg button')) b.onclick = () => {
     picked = new Set(b.dataset.pick === 'all' ? names : b.dataset.pick === 'top' ? names.slice(0, TOP) : []);
     change();
@@ -230,10 +245,14 @@ function draw() {
   if (scene.ok) {
     scene.setData({ models: data.models, visible, axes, kinds: axes.map(kindOf), titles: axes.map(k => (mq.matches ? MEASURES[k].name : MEASURES[k].axis)), colors: color,
       tickLabel: rtl ? tk => (tk.iso ? f.month(tk.iso) : f.digits(tk.label)) : undefined });
+    best = frontier(data.models, visible, axes);
+    scene.setBest(lightBest ? best : null);
     sv?.refresh();
   }
   const onChart = new Map([...Map.groupBy(visible, i => data.models[i].company)].map(([co, idx]) => [co, idx.length]));
   $('count').textContent = tr('count', { shown: f.int(visible.length), total: f.int(data.models.length) });
+  $('bestT').checked = lightBest;
+  $('bestNote').textContent = tr('best.note', { n: f.int(best.size) });
   renderCompanies(onChart);
   emptyState(visible.length);
 }
@@ -326,9 +345,71 @@ function showCard(i) {
   const p = scene.worldOf(i)?.clone().project(scene.camera); // grows out of the dot
   openCard([el('h3', { textContent: m.name }),
     el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [tr('released', { date: MEASURES.release.fmt(m.release) })] : [])))],
-  [el('p', { className: 'verdict', textContent: verdict(lang, ranks) }), el('div', { className: 'stats' }, ...stats)],
+  [el('p', { className: 'verdict', textContent: verdict(lang, ranks) }),
+    ...(best.has(i) ? [el('p', { className: 'best' }, el('b', { textContent: tr('best.cardLead') + ' ' }), tr('best.card'))] : []),
+    el('div', { className: 'stats' }, ...stats), pinButton(i)],
   p ? ((p.x + 1) / 2) * innerWidth : innerWidth - 40, p ? ((1 - p.y) / 2) * innerHeight : innerHeight - 40);
 }
+
+// a model chosen from the search: make sure the chart shows it (its company, any filter that hides it), fly there and open its card
+function pickModel(i) {
+  const m = data.models[i];
+  if (sv?.active()) sv.exit({ instant: true });
+  picked.add(m.company);
+  for (const k of filterKeys()) if (!inRanges(m, ranges, [k])) { if (k === 'release') ranges.release = [null, null]; else delete ranges[k]; }
+  change();
+  $('q').blur(); // phones: the keyboard goes away
+  const ms = reduced.matches ? 0 : 800;
+  if (!scene.ok) return showCard(i);
+  if (!mq.matches) return scene.flyTo(i, ms, () => showCard(i)); // a model missing one of the axes isn't on the chart: just its card
+  showCard(i); // phones: the card rises first, then the dot settles in the space above it
+  scene.setInsets({ left: 0, bottom: $('card').offsetHeight });
+  scene.flyTo(i, ms);
+}
+
+// ---------- compare: pinned models, a tray of them, and a table ----------
+function pinButton(i) {
+  const b = el('button', { className: 'pin' });
+  const paint = () => {
+    const now = pinned.includes(i);
+    b.textContent = tr(now ? 'pin.remove' : pinned.length >= PIN_MAX ? 'pin.full' : 'pin.add');
+    b.disabled = !now && pinned.length >= PIN_MAX;
+  };
+  b.onclick = () => { togglePin(i); paint(); };
+  paint();
+  return b;
+}
+function togglePin(i) {
+  pinned = pinned.includes(i) ? pinned.filter(j => j !== i) : [...pinned, i].slice(0, PIN_MAX);
+  renderTray(); writeLink();
+}
+function renderTray() {
+  $('tray').hidden = !pinned.length;
+  $('trayChips').replaceChildren(...pinned.map(i => {
+    const m = data.models[i], open = el('button', { textContent: m.name, dir: 'auto' }), x = el('button', { className: 'x', 'aria-label': tr('pin.drop', { name: m.name }) }, icon('M6 6l12 12M18 6L6 18'));
+    open.onclick = () => pickModel(i);
+    x.onclick = () => { togglePin(i); if (selected === i) showCard(i); };
+    return el('span', { className: 'chip' }, dot(m.company), open, x);
+  }));
+  $('pinOpen').textContent = tr(pinned.length < 2 ? 'pin.more' : 'pin.open');
+  $('pinOpen').disabled = pinned.length < 2;
+}
+$('pinOpen').onclick = () => {
+  const chosen = pinned.map(i => data.models[i]);
+  const head = el('tr', {}, el('th'), ...chosen.map(m => el('th', { scope: 'col' }, dot(m.company), m.name)));
+  const rows = Object.keys(MEASURES).map(k => {
+    const meas = MEASURES[k], vals = chosen.map(m => m[k]), s = k === 'release' ? 1 : betterSign(k);
+    const num = v => (typeof v === 'string' ? Date.parse(v) : v), top = Math.max(...vals.filter(v => v != null).map(v => s * num(v)));
+    return el('tr', {}, el('th', { scope: 'row', textContent: meas.tile ?? meas.name }), ...chosen.map((m, j) => {
+      if (vals[j] == null) return el('td', {}, el('span', { className: 'r', textContent: tr('notMeasured') }));
+      const p = k === 'release' ? null : percentile(data.models, m, k);
+      return el('td', { className: s * num(vals[j]) === top ? 'win' : '' }, el('span', { className: 'v', textContent: (meas.short ?? meas.fmt)(vals[j]) }),
+        ...(p == null ? [] : [el('span', { className: 'r', textContent: rankWord(lang, p) })]));
+    }));
+  });
+  $('pinTable').replaceChildren(el('thead', {}, head), el('tbody', {}, ...rows));
+  $('pinDialog').showModal();
+};
 
 // from: the ⓘ button in the company list; left out when switching from a model's card, which then stays put
 function showCompany(co, from) {
@@ -353,7 +434,7 @@ function hideCard({ instant = false } = {}) {
   if (card.hidden) return;
   document.body.classList.remove('card-on'); // the rail fades back while the card leaves
   moved = false; // reopened while closing: beside its anchor again
-  const done = () => { card.hidden = true; cardSheet.reset(); moved = false; drop(); };
+  const done = () => { card.hidden = true; cardSheet.reset(); moved = false; drop(); chrome(); }; // chrome: phones get back the view a search may have moved up
   if (instant) return done();
   if (mq.matches) return cardSheet.close(done);
   hiding = card.animate(reduced.matches ? [{ opacity: 1 }, { opacity: 0 }]
@@ -392,6 +473,8 @@ function writeLink() {
   else if (!picked.size) p.append('c', '');
   else if (!(picked.size === top.length && top.every(c => picked.has(c)))) for (const c of names.filter(c => picked.has(c))) p.append('c', c);
   writeRanges(p, { ...ranges, release: isRecent(ranges.release) ? null : ranges.release }, filterKeys()); // the default stays out of the link: it means the last year whenever the link is opened
+  if (lightBest) p.set('best', '1');
+  for (const i of pinned) p.append('cmp', data.models[i].name);
   writeSV(p, sv?.current());
   if (rtl) p.set('lang', 'fa');
   history.replaceState(null, '', '#' + p);
@@ -416,6 +499,9 @@ function readLink() {
   picked = new Set(c.includes('*') ? names : c.length === 1 && c[0] === '' ? [] : known.length ? known : names.slice(0, TOP));
   ranges = readRanges(p, Object.fromEntries(Object.keys(MEASURES).map(k => [k, kindOf(k)])));
   ranges.release ??= [...RECENT];
+  lightBest = p.get('best') === '1';
+  pinned = [...new Set(p.getAll('cmp').map(n => data.models.findIndex(m => m.name === n)).filter(i => i >= 0))].slice(0, PIN_MAX);
+  renderTray();
   wantSV = readSV(p);
 }
 
