@@ -5,6 +5,7 @@ import { t, fmt, rankWord, verdict } from './i18n.js';
 import { createStreetView } from './streetview.js';
 import { createSheet } from './sheet.js';
 import { COMPANIES, companyFacts, sortCompanies } from './companies.js';
+import { createTour } from './tour.js';
 
 const lang = document.documentElement.lang === 'fa' ? 'fa' : 'en'; // decided before first paint by index.html's head script
 const tr = (k, v) => t(lang, k, v), f = fmt(lang), rtl = lang === 'fa';
@@ -452,6 +453,8 @@ function layout() {
 // ---------- page chrome ----------
 $('glossary').append(...Object.values(MEASURES).map(m => el('li', {}, el('strong', { textContent: m.name + ': ' }), m.about)));
 $('aboutBtn').onclick = () => $('about').showModal();
+const tour = createTour($('tour'), { tr, rtl, int: f.int });
+$('tourBtn').onclick = () => { $('about').close(); tour.open(); };
 $('homeBtn').onclick = () => scene.ok && scene.resetView(reduced.matches ? 0 : 700);
 $('grabber').onclick = () => sheet.cycle();
 document.querySelector('.peek').onclick = () => { if (sheet.index() === 0) sheet.open(1); };
@@ -497,7 +500,7 @@ function morph(cover) {
 }
 
 $('loadMsg').textContent = tr('load.models'); // this module only runs once three.js has arrived
-load().then(d => { data = d; $('loadMsg').textContent = tr('load.drawing'); try { init(); } finally { reveal(); } }, () => {
+load().then(d => { data = d; $('loadMsg').textContent = tr('load.drawing'); try { init(); } finally { reveal().then(() => tour.seen() || tour.open()); } }, () => {
   const again = el('button', { className: 'btn', textContent: tr('load.reload') });
   again.onclick = () => location.reload();
   $('loading').replaceChildren(el('p', { textContent: tr('load.failed') }), again);

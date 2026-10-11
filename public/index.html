@@ -238,6 +238,25 @@
   .dialog-head h2 { margin: 0 !important; }
   @keyframes arrive { from { opacity: 0; transform: scale(.94); filter: blur(6px); } }
   @media (prefers-reduced-motion: reduce) { dialog[open] { animation: fade .2s ease; } @keyframes fade { from { opacity: 0; } } }
+  .linkish { padding: 0; border: 0; background: none; color: var(--signal); font-weight: 600; cursor: pointer; }
+
+  /* tour: slides side by side, swiped with scroll snapping or stepped with the buttons */
+  #tour { width: min(440px, calc(100vw - 32px)); padding: 0; overflow: hidden; }
+  .tour-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .tour-track::-webkit-scrollbar { display: none; }
+  .slide { flex: 0 0 100%; scroll-snap-align: start; padding: 20px 24px 0; }
+  .tour-art { height: 158px; margin-bottom: 18px; border-radius: 16px; background: var(--fill); }
+  .tour-art svg { display: block; width: 100%; height: 100%; }
+  [dir=rtl] .tour-art svg { transform: scaleX(-1); } /* pictures of the interface: mirrored like the interface */
+  #tour .slide h2 { margin: 0 0 6px; font-size: 22px; line-height: 1.2; letter-spacing: -0.022em; }
+  #tour .slide p { min-height: 4.4em; margin: 0; font-size: 15px; line-height: 1.47; } /* three lines: the buttons don't jump between slides */
+  .tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px 22px; }
+  #tourBack, #tourSkip { padding: 6px 2px; border: 0; background: none; color: var(--slate); font-weight: 500; cursor: pointer; }
+  #tourSkip { position: absolute; z-index: 1; top: 26px; inset-inline-end: 34px; padding: 3px 10px; border-radius: 999px; background: var(--glass-thin); font-size: 13px; }
+  .tour-dots { display: flex; gap: 6px; }
+  .tour-dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 4px; background: var(--fill-strong); cursor: pointer; transition: width .2s ease, background .2s ease; }
+  .tour-dots button[aria-current="step"] { width: 18px; background: var(--ink); }
+  #tourNext { min-width: 96px; }
 
   /* ---------- Street View ---------- */
   #svMenu, #svHint { position: fixed; inset-inline-end: 12px; top: 156px; z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(300px, calc(100% - 24px)); padding: 8px; border-radius: 14px; transform-origin: top right; animation: arrive .24s cubic-bezier(.2, .9, .25, 1); }
@@ -390,11 +409,18 @@
     <li data-t="about.l4">Drag the yellow figure into the chart to step inside it.</li>
     <li data-t="about.l5">The link in your address bar keeps your question and companies, so you can share exactly what you see.</li>
   </ul>
+  <p><button id="tourBtn" class="linkish" data-t="tour.open">Take the tour</button></p>
   <h2 data-t="about.measures">What the measures mean</h2>
   <ul id="glossary"></ul>
   <h2 data-t="about.sources">Where the numbers come from</h2>
   <p><span data-t="about.src1">Smartness, cost, price, speed and release dates come from </span><a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a><span data-t="about.src2">. ARC-AGI-2 scores come from the </span><a href="https://arcprize.org/leaderboard" target="_blank" rel="noopener" data-t="about.arcLink">ARC Prize leaderboard</a><span data-t="about.src3"> and are matched to the same model and effort setting; models ARC hasn't tested have no score.</span></p>
   <p id="about-status"></p>
+</dialog>
+
+<dialog id="tour" aria-label="Tour of the map" data-t-label="tour.aria">
+  <button id="tourSkip" data-t="tour.skip">Skip</button>
+  <div class="tour-track"></div>
+  <div class="tour-foot"><button id="tourBack" data-t="tour.back">Back</button><div class="tour-dots"></div><button id="tourNext" class="btn">Next</button></div>
 </dialog>
 
 <script type="module" src="app.js"></script>
