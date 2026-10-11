@@ -58,7 +58,7 @@ const switchLang = () => { // to the other language: remembered, kept in the lin
 $('langBtn').onclick = switchLang;
 
 let data, names, totals, color, picked, axes, question, shownAxes, wantSV = null, hiding = null;
-let ranges = {}; // filter: { measure: [lo, hi] }; only the chart's axes apply
+let ranges = {}; // filter: { measure: [lo, hi] }; the chart's axes and release date apply
 const boxes = new Map(); // company -> its checkbox in the company list
 let sv = null; // Street View, once available
 let hovered = null, selected = null; // model under the pointer; model whose card is open
@@ -153,36 +153,41 @@ function renderMeasures() {
   $('peekKey').replaceChildren(...axes.map((k, i) => el('li', {}, mark(i), MEASURES[k].name)));
 }
 
-// ---------- filter: a min-max slider per axis, on the axis's own scale ----------
+// ---------- filter: a min-max slider per axis, on the axis's own scale, plus release date, which always filters ----------
+// A handle at the end of its track is no limit on that side (null), so models newer than the newest today still show up.
+const RECENT = [new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10), null]; // default: released in the last year
+const filterKeys = () => [...new Set([...axes, 'release'])];
+const isRecent = r => r?.[0] === RECENT[0] && r[1] == null;
+
 function renderFilters() {
-  $('filters').replaceChildren(...[...new Set(axes)].map(k => {
+  $('filters').replaceChildren(...filterKeys().map(k => {
     const i = axes.indexOf(k), ms = MEASURES[k], show = ms.short ?? ms.fmt, sc = rangeScale(kindOf(k), data.models.map(m => m[k]));
-    const thumb = (v, key) => el('input', { type: 'range', min: 0, max: 1000, value: Math.round(sc.toPos(v) * 1000), 'aria-label': tr(key, { name: ms.name }) });
-    const v = ranges[k] ? [...ranges[k]] : [sc.fromPos(0), sc.fromPos(1)], a = thumb(v[0], 'filter.min'), b = thumb(v[1], 'filter.max'); // v: the exact range, as in the link
-    const fill = el('i'), val = el('span', { className: 'f-val' });
-    fill.style.background = `var(--ax-${i})`;
+    const ends = [sc.fromPos(0), sc.fromPos(1)], v = ranges[k] ? [...ranges[k]] : [null, null]; // v: the exact range, as in the link
+    const thumb = (j, key) => el('input', { type: 'range', min: 0, max: 1000, value: v[j] == null ? j * 1000 : Math.round(sc.toPos(v[j]) * 1000), 'aria-label': tr(key, { name: ms.name }) });
+    const a = thumb(0, 'filter.min'), b = thumb(1, 'filter.max'), fill = el('i'), val = el('span', { className: 'f-val' });
+    fill.style.background = i < 0 ? 'var(--slate)' : `var(--ax-${i})`;
     const paint = () => {
+      const [lo, hi] = v.map((x, j) => show(x ?? ends[j]));
       Object.assign(fill.style, { insetInlineStart: a.value / 10 + '%', insetInlineEnd: 100 - b.value / 10 + '%' });
-      val.textContent = tr('filter.range', { lo: show(v[0]), hi: show(v[1]) });
-      a.setAttribute('aria-valuetext', show(v[0])); b.setAttribute('aria-valuetext', show(v[1]));
+      val.textContent = tr('filter.range', { lo, hi });
+      a.setAttribute('aria-valuetext', lo); b.setAttribute('aria-valuetext', hi);
     };
+    const read = x => (x.valueAsNumber === (x === a ? 0 : 1000) ? null : sc.fromPos(x.valueAsNumber / 1000));
     a.oninput = b.oninput = e => {
       const j = e.target === a ? 0 : 1, other = j ? a : b;
-      const crossed = a.valueAsNumber > b.valueAsNumber;
-      if (crossed) other.value = e.target.value; // pushing past the other handle takes it along
-      v[j] = sc.fromPos(e.target.valueAsNumber / 1000);
-      if (crossed) v[1 - j] = v[j];
-      if (a.valueAsNumber === 0 && b.valueAsNumber === 1000) delete ranges[k]; else ranges[k] = [...v];
+      if (a.valueAsNumber > b.valueAsNumber) { other.value = e.target.value; v[1 - j] = read(other); } // pushing past the other handle takes it along
+      v[j] = read(e.target);
+      if (k === 'release' || v.some(x => x != null)) ranges[k] = [...v]; else delete ranges[k]; // release keeps [null, null]: "all time", not the default
       paint(); resetShown(); writeLink(); draw();
     };
     paint();
-    return el('div', { className: 'frow' }, el('div', { className: 'f-head' }, el('span', {}, mark(i), ms.tile ?? ms.name), val),
+    return el('div', { className: 'frow' }, el('div', { className: 'f-head' }, el('span', {}, i < 0 ? el('i', { className: 'ax-mark ax-mark-none' }) : mark(i), ms.tile ?? ms.name), val),
       el('div', { className: 'f-range' }, el('span', { className: 'f-track' }, fill), a, b));
   }));
   resetShown();
 }
-const resetShown = () => { $('fReset').hidden = !axes.some(k => ranges[k]); };
-$('fReset').onclick = () => { for (const k of axes) delete ranges[k]; change(); };
+const resetShown = () => { $('fReset').hidden = filterKeys().every(k => (k === 'release' ? isRecent(ranges.release) : !ranges[k])); };
+$('fReset').onclick = () => { for (const k of axes) delete ranges[k]; ranges.release = [...RECENT]; change(); };
 
 // ---------- companies ----------
 function renderPicker() {
@@ -221,7 +226,7 @@ function renderCompanies(onChart) {
 
 // ---------- chart ----------
 function draw() {
-  const visible = data.models.flatMap((m, i) => (picked.has(m.company) && axes.every(k => m[k] != null) && inRanges(m, ranges, axes) ? [i] : []));
+  const visible = data.models.flatMap((m, i) => (picked.has(m.company) && axes.every(k => m[k] != null) && inRanges(m, ranges, filterKeys()) ? [i] : []));
   if (scene.ok) {
     scene.setData({ models: data.models, visible, axes, kinds: axes.map(kindOf), titles: axes.map(k => (mq.matches ? MEASURES[k].name : MEASURES[k].axis)), colors: color,
       tickLabel: rtl ? tk => (tk.iso ? f.month(tk.iso) : f.digits(tk.label)) : undefined });
@@ -386,7 +391,7 @@ function writeLink() {
   if (picked.size === names.length) p.append('c', '*');
   else if (!picked.size) p.append('c', '');
   else if (!(picked.size === top.length && top.every(c => picked.has(c)))) for (const c of names.filter(c => picked.has(c))) p.append('c', c);
-  writeRanges(p, ranges, axes);
+  writeRanges(p, { ...ranges, release: isRecent(ranges.release) ? null : ranges.release }, filterKeys()); // the default stays out of the link: it means the last year whenever the link is opened
   writeSV(p, sv?.current());
   if (rtl) p.set('lang', 'fa');
   history.replaceState(null, '', '#' + p);
@@ -410,6 +415,7 @@ function readLink() {
   const c = p.getAll('c'), known = c.filter(n => totals.has(n));
   picked = new Set(c.includes('*') ? names : c.length === 1 && c[0] === '' ? [] : known.length ? known : names.slice(0, TOP));
   ranges = readRanges(p, Object.fromEntries(Object.keys(MEASURES).map(k => [k, kindOf(k)])));
+  ranges.release ??= [...RECENT];
   wantSV = readSV(p);
 }
 
