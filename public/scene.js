@@ -60,7 +60,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   const frame = new THREE.Group(), data = new THREE.Group(), overlay = new THREE.Group();
   scene.add(frame, data, overlay);
 
-  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, drop = null, focus = null, last = null, builtK = 1;
+  let state = null, dots = null, placed = false, queued = false, anim = null, ring = null, drop = null, focus = null, best = null, last = null, builtK = 1;
   const subs = new Set(), bufSize = new THREE.Vector2();
   const maxPointPx = renderer.getContext().getParameter(renderer.getContext().ALIASED_POINT_SIZE_RANGE)[1];
 
@@ -195,7 +195,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   // dot sizes, dot fading and line opacities, as emphasis() decides
   function paint() {
     if (!state) return;
-    const e = emphasis(state.visible, state.lines.map(l => l.company), focus, drop);
+    const e = emphasis(state.visible, state.lines.map(l => l.company), focus, drop, best);
     if (dots) {
       const { aScale, aAlpha } = dots.geometry.attributes;
       aScale.array.set(e.scale); aAlpha.array.set(e.alpha);
@@ -297,6 +297,15 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
   return {
     ok: true, camera, controls, canvas, render, onFrame, setData, pick, preview, animateCamera,
     setFocus: j => { if (j === focus) return; focus = j; paint(); }, // model index or null
+    setBest: set => { best = set; paint(); }, // best trade-offs to light up, or null
+    // glide to a dot, keeping the current viewing angle; the chart then turns around that dot
+    flyTo: (j, duration, done) => {
+      const p = state?.world.get(j);
+      if (!p || !controls.enabled) return done?.();
+      const dir = camera.getWorldDirection(new THREE.Vector3()), dist = Math.min(camera.position.distanceTo(p), 3.2);
+      animateCamera({ position: p.clone().addScaledVector(dir, -dist), look: p, duration,
+        done: () => { controls.target.copy(p); controls.update(); render(); done?.(); } });
+    },
     setOrbit: on => { controls.enabled = on; },
     setInsets: ({ left = 0, right = 0, bottom = 0 }) => {
       if (left === insets.left && right === insets.right && bottom === insets.bottom) return;
