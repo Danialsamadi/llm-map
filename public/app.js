@@ -10,8 +10,18 @@ import { createTour } from './tour.js';
 const lang = document.documentElement.lang === 'fa' ? 'fa' : 'en'; // decided before first paint by index.html's head script
 const tr = (k, v) => t(lang, k, v), f = fmt(lang), rtl = lang === 'fa';
 
+// two kinds of model, one at a time: language models (the default) or decision models, which answer with a choice or a score. #set=decision
+const SET = new URLSearchParams(location.hash.slice(1)).get('set') === 'decision' ? 'decision' : 'llm';
 const M = (k, o) => ({ name: tr('name.' + k), axis: tr('axis.' + k), about: tr('about.' + k), ...o });
-const MEASURES = {
+const score = k => M(k, { better: tr('better.higher'), fmt: v => f.num(v, 1) });
+const MEASURES = SET === 'decision' ? {
+  decision: score('decision'),
+  latency: M('latency', { log: true, better: tr('better.lower'), fmt: v => tr('fmt.ms', { v: f.int(v) }) }),
+  tools: score('tools'),
+  size: M('size', { log: true, better: tr('better.smaller'), fmt: v => tr('fmt.size', { v: f.num(v, v < 10 ? 1 : 0) }) }),
+  language: score('language'),
+  knowledge: score('knowledge'),
+} : {
   intelligence: M('intelligence', { better: tr('better.higher'), fmt: v => f.num(v, 1) }),
   cost: M('cost', { log: true, better: tr('better.lower'), fmt: v => f.money(v) }),
   price: M('price', { log: true, better: tr('better.lower'), fmt: v => tr('fmt.price', { v: f.money(v) }), tile: tr('tile.price'), short: v => f.money(v) }),
@@ -19,7 +29,8 @@ const MEASURES = {
   agi: M('agi', { better: tr('better.higher'), fmt: v => f.pct(v) }),
   release: M('release', { date: true, better: tr('better.newest'), fmt: v => f.date(v) }),
 };
-const QUESTIONS = [['value', ['intelligence', 'cost', 'speed']], ['agi', ['release', 'agi', 'intelligence']], ['prices', ['release', 'price', 'intelligence']], ['custom', null]]
+const QUESTIONS = (SET === 'decision' ? [['decide', ['decision', 'latency', 'tools']], ['custom', null]]
+  : [['value', ['intelligence', 'cost', 'speed']], ['agi', ['release', 'agi', 'intelligence']], ['prices', ['release', 'price', 'intelligence']], ['custom', null]])
   .map(([id, axes]) => ({ id, title: tr('q.' + id), text: tr('q.' + id + '.text'), axes }));
 const TOP = 5; // companies shown when the link doesn't name any
 const PALETTE = ['#4e79a7','#f28e2b','#59a14f','#e15759','#b07aa1','#76b7b2','#edc948','#ff9da7','#9c755f','#bab0ac','#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#17becf','#bcbd22','#7f7f7f'];
@@ -104,11 +115,14 @@ async function load() {
   try {
     const r = await fetch('/api/models');
     if (!r.ok) throw new Error(r.status);
-    return { ...(await r.json()), mode: 'live' };
+    const d = await r.json();
+    if (SET === 'decision' && !d.decisions?.length) throw new Error('no decision models'); // the leaderboard was down: the saved copy has them
+    return { ...d, models: SET === 'decision' ? d.decisions : d.models, mode: 'live' };
   } catch {
     const r = await fetch('models.json');
     if (!r.ok) throw new Error('no snapshot');
-    return { ...(await r.json()), mode: 'snapshot' };
+    const d = await r.json();
+    return { ...d, models: SET === 'decision' ? d.decisions ?? [] : d.models, mode: 'snapshot' };
   }
 }
 
@@ -159,7 +173,7 @@ function renderMeasures() {
 // ---------- filter: a min-max slider per axis, on the axis's own scale, plus release date, which always filters ----------
 // A handle at the end of its track is no limit on that side (null), so models newer than the newest today still show up.
 const RECENT = [new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10), null]; // default: released in the last year
-const filterKeys = () => [...new Set([...axes, 'release'])];
+const filterKeys = () => [...new Set([...axes, ...(MEASURES.release ? ['release'] : [])])];
 const isRecent = r => r?.[0] === RECENT[0] && r[1] == null;
 
 function renderFilters() {
@@ -190,7 +204,7 @@ function renderFilters() {
   resetShown();
 }
 const resetShown = () => { $('fReset').hidden = filterKeys().every(k => (k === 'release' ? isRecent(ranges.release) : !ranges[k])); };
-$('fReset').onclick = () => { for (const k of axes) delete ranges[k]; ranges.release = [...RECENT]; change(); };
+$('fReset').onclick = () => { for (const k of axes) delete ranges[k]; if (MEASURES.release) ranges.release = [...RECENT]; change(); };
 
 // ---------- companies ----------
 function renderPicker() {
@@ -220,7 +234,7 @@ function renderPicker() {
   };
   $('q').onkeydown = e => { if (e.key === 'Enter') $('hits').querySelector('.hit')?.click(); };
   $('bestT').onchange = () => { lightBest = $('bestT').checked; writeLink(); draw(); };
-  for (const b of document.querySelectorAll('.seg button')) b.onclick = () => {
+  for (const b of document.querySelectorAll('.seg button[data-pick]')) b.onclick = () => {
     picked = new Set(b.dataset.pick === 'all' ? names : b.dataset.pick === 'top' ? names.slice(0, TOP) : []);
     change();
   };
@@ -231,7 +245,7 @@ const dot = co => { const d = el('span', { className: 'dot' }); d.style.backgrou
 function renderCompanies(onChart) {
   const top = names.slice(0, TOP);
   const pickedNow = picked.size === names.length ? 'all' : !picked.size ? 'none' : picked.size === TOP && top.every(c => picked.has(c)) ? 'top' : null;
-  for (const b of document.querySelectorAll('.seg button')) b.setAttribute('aria-pressed', b.dataset.pick === pickedNow);
+  for (const b of document.querySelectorAll('.seg button[data-pick]')) b.setAttribute('aria-pressed', b.dataset.pick === pickedNow);
   for (const [co, cb] of boxes) {
     cb.checked = picked.has(co);
     const name = cb.parentNode.querySelector('.name'), empty = picked.has(co) && !onChart.get(co);
@@ -345,6 +359,7 @@ function showCard(i) {
   const co = el('button', { 'aria-label': tr('aboutCo', { name: m.company }), textContent: m.company });
   co.onclick = () => showCompany(m.company);
   const p = scene.worldOf(i)?.clone().project(scene.camera); // grows out of the dot
+  if (m.hosted) stats.push(el('p', { className: 'note', textContent: tr('hostedNote') }));
   openCard([el('h3', { textContent: m.name }),
     el('p', { className: 'who' }, dot(m.company), el('span', {}, co, ...(m.release ? [tr('released', { date: MEASURES.release.fmt(m.release) })] : []))), pinButton(i)], // in the title area, which never scrolls: always in sight
   [el('p', { className: 'verdict', textContent: verdict(lang, ranks) }),
@@ -431,7 +446,7 @@ function showCompany(co, from) {
   if (c) head.push(el('p', { className: 'who' }, dot(co), el('a', { href: c.url, target: '_blank', rel: 'noopener', textContent: new URL(c.url).hostname.replace(/^www\./, '') + ' ↗' }))),
     kids.push(el('p', { textContent: rtl ? c.fa : c.about }));
   kids.push(el('p', { className: 'facts', textContent: tr(facts.count === 1 ? 'models.one' : 'models.many', { n: f.int(facts.count) })
-    + (facts.newest ? tr('newest', { name: facts.newest.name, date: MEASURES.release.fmt(facts.newest.release) }) : '') }),
+    + (facts.newest && MEASURES.release ? tr('newest', { name: facts.newest.name, date: MEASURES.release.fmt(facts.newest.release) }) : '') }),
     el('dl', {}, ...rows));
   if (!from) return openCard(head, kids);
   const r = from.getBoundingClientRect();
@@ -486,6 +501,7 @@ function writeLink() {
   if (lightBest) p.set('best', '1');
   for (const i of pinned) p.append('cmp', data.models[i].name);
   writeSV(p, sv?.current());
+  if (SET === 'decision') p.set('set', 'decision');
   if (rtl) p.set('lang', 'fa');
   history.replaceState(null, '', '#' + p);
 }
@@ -506,9 +522,9 @@ function readLink() {
   axes = a.every(k => Object.hasOwn(MEASURES, k)) ? a : [...QUESTIONS[0].axes];
   question = QUESTIONS.find(q => q.axes?.every((k, i) => axes[i] === k))?.id ?? 'custom';
   const c = p.getAll('c'), known = c.filter(n => totals.has(n));
-  picked = new Set(c.includes('*') ? names : c.length === 1 && c[0] === '' ? [] : known.length ? known : names.slice(0, TOP));
+  picked = new Set(c.includes('*') ? names : c.length === 1 && c[0] === '' ? [] : known.length ? known : SET === 'decision' ? names : names.slice(0, TOP)); // decision models: dozens of small makers, and Jev's has one model
   ranges = readRanges(p, Object.fromEntries(Object.keys(MEASURES).map(k => [k, kindOf(k)])));
-  ranges.release ??= [...RECENT];
+  if (MEASURES.release) ranges.release ??= [...RECENT];
   lightBest = p.get('best') === '1';
   pinned = [...new Set(p.getAll('cmp').map(n => data.models.findIndex(m => m.name === n)).filter(i => i >= 0))].slice(0, PIN_MAX);
   renderTray();
@@ -554,6 +570,13 @@ function layout() {
 }
 
 // ---------- page chrome ----------
+// the set switch: a fresh page for the other kind of model (axes, filters and companies don't carry over)
+for (const b of document.querySelectorAll('[data-set]')) {
+  b.setAttribute('aria-pressed', b.dataset.set === SET);
+  b.onclick = () => { if (b.dataset.set === SET) return; location.hash = new URLSearchParams({ ...(b.dataset.set === 'decision' && { set: 'decision' }), ...(rtl && { lang: 'fa' }) }); }; // hashchange reloads
+}
+$('sort').replaceChildren(...['count', 'name', ...Object.keys(MEASURES)].map(k => el('option', { value: k, textContent: tr('sort.' + k) })));
+$('dixSrc').hidden = SET !== 'decision';
 $('glossary').append(...Object.values(MEASURES).map(m => el('li', {}, el('strong', { textContent: m.name + ': ' }), m.about)));
 $('aboutBtn').onclick = () => $('about').showModal();
 const tour = createTour($('tour'), { tr, rtl, int: f.int, onLang: at => { try { sessionStorage.setItem('tourAt', at); } catch {} switchLang(); } });

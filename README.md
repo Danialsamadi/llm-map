@@ -10,7 +10,8 @@ Every AI language model on one 3D chart. Each dot is a model, each line joins on
 - **See the best trade-offs.** A switch lights up the models that nothing else on the chart beats on all three axes, and dims the rest. Their cards say so too.
 - **Open a model.** Click or tap a dot. The card sums the model up in one sentence, then ranks it against every other model on each measure with a coloured bar and a badge such as "Top 1%".
 - **Find a model.** Type part of its name in the search box, such as "opus" or "gemini flash". Picking a result shows its company and widens any filter that hides it, then flies the camera to its dot and opens its card.
-- **Compare models.** Add up to three models from their cards. A tray collects them, and Compare opens a table of their numbers and ranks side by side, with the best value in each row starred.
+- **Compare models.** Add up to three models from their cards. A tray collects them, and Compare opens a list of their numbers and ranks for each measure, with the clear leader starred.
+- **Decision models.** Switch the panel's top control to Decision models to chart models like Jev, which answer with a choice or a score instead of text: Decision Index score, latency, tool use, size, language and knowledge.
 - **Read about a company.** A company card gives a short overview, a link to its website, its model count and its best model on each measure.
 - **Filter by range.** Every axis has a two-handle slider, so you can keep only models under $1 per task or faster than 100 tokens a second. The chart refits to what is left. Release date always has a slider too: the map starts with models released in the last year, and you can widen it to any date back to the first model.
 - **Choose companies.** Tick them on and off, or pick Top 5, All or None. Search the list, or sort it by model count, name, newest model or best score.
@@ -25,6 +26,7 @@ A short tour introduces all of this on the first visit. The ⓘ button reopens i
 
 - [Artificial Analysis](https://artificialanalysis.ai/) supplies smartness (their Intelligence Index), cost per task, API price, output speed and release dates.
 - The [ARC Prize leaderboard](https://arcprize.org/leaderboard) supplies ARC-AGI-2 scores. They are matched to Artificial Analysis models by name and effort setting. A model ARC has not tested has no score.
+- The [Jev Decision Index](https://huggingface.co/spaces/multimodalart/jev-decision-index), a community leaderboard on Hugging Face, supplies the decision models: its headline Full score, median latency, size and area scores. Models it is still testing are left out until they finish.
 
 The Worker fetches both sources, merges them and caches the result for six hours. If the live request fails, the page falls back to the snapshot in `public/models.json` and says so.
 
@@ -94,4 +96,4 @@ No framework and no build step. The browser loads the modules in `public/` direc
 
 ## License
 
-The code is under the [MIT License](LICENSE). The model data belongs to [Artificial Analysis](https://artificialanalysis.ai/) and the [ARC Prize](https://arcprize.org/) and follows their terms.
+The code is under the [MIT License](LICENSE). The model data belongs to [Artificial Analysis](https://artificialanalysis.ai/) the [ARC Prize](https://arcprize.org/) and the [Jev Decision Index](https://huggingface.co/spaces/multimodalart/jev-decision-index) and follows their terms.

@@ -179,7 +179,7 @@ export function createScene(container, { onHover = () => {}, onClick = () => {} 
       data.add(dots);
     }
     const lines = [...Map.groupBy(visible, j => models[j].company)].map(([company, js]) => {
-      const ordered = [...js].sort((a, b) => (models[a].release ?? '').localeCompare(models[b].release ?? ''));
+      const ordered = [...js].sort((a, b) => (models[a].release ?? '').localeCompare(models[b].release ?? '') || (models[a].size ?? 0) - (models[b].size ?? 0)); // no dates (decision models): smallest to biggest
       const points = ordered.map(j => world.get(j));
       const obj = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
         new THREE.LineBasicMaterial({ color: colors.get(company), transparent: true }));

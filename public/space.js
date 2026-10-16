@@ -60,7 +60,8 @@ export function nearest(pos, from, n, exclude) {
     .sort((a, b) => a[1] - b[1] || a[0] - b[0]).slice(0, n).map(([j]) => j);
 }
 
-export const betterSign = k => (k === 'cost' || k === 'price' ? -1 : 1);
+const LOWER = new Set(['cost', 'price', 'latency', 'size']); // measures where less is better
+export const betterSign = k => (LOWER.has(k) ? -1 : 1);
 
 // How `to` differs from `from`, in words, from the two biggest differences (cube units).
 export function compare(axes, from, to, lang = 'en') {

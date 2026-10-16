@@ -128,6 +128,8 @@
   #count { color: var(--slate); font-size: 12px; letter-spacing: 0; }
   .seg { display: flex; gap: 2px; padding: 2px; margin: 0 2px 8px; border-radius: 9px; background: var(--fill); }
   .seg button { flex: 1; padding: 4px 0; border: 0; border-radius: 7px; background: none; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .set-seg { margin: 0 0 14px; }
+  #card p.note { margin: 10px 0 0; color: var(--slate); font-size: 12px; }
   .seg button[aria-pressed="true"] { background: var(--panel); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / .12), 0 0 0 .5px var(--hair); }
   .find { display: flex; gap: 6px; margin: 0 2px 6px; }
   #q { flex: 1; min-width: 0; padding: 0 10px; }
@@ -429,6 +431,7 @@
   </div>
   <div class="body">
     <header class="brand"><h1 data-t="brand">LLM map</h1><p class="status" id="status"></p></header>
+    <div class="seg set-seg" role="group" aria-label="Kind of model" data-t-label="set.aria"><button data-set="llm" data-t="set.llm">Language models</button><button data-set="decision" data-t="set.decision">Decision models</button></div>
     <section aria-labelledby="h-ask">
       <h2 id="h-ask" data-t="h.question">Question</h2>
       <div id="questions" role="radiogroup" aria-labelledby="h-ask"></div>
@@ -446,9 +449,6 @@
       <div class="find">
         <input id="q" type="search" placeholder="Search" aria-label="Search companies" data-t-ph="search" data-t-label="search.aria">
         <select id="sort" aria-label="Sort companies" data-t-label="sort.aria">
-          <option value="count" data-t="sort.count">Most models</option><option value="name" data-t="sort.name">Name</option><option value="release" data-t="sort.release">Newest model</option>
-          <option value="intelligence" data-t="sort.intelligence">Smartest model</option><option value="cost" data-t="sort.cost">Cheapest to run</option><option value="price" data-t="sort.price">Lowest price</option>
-          <option value="speed" data-t="sort.speed">Fastest model</option><option value="agi" data-t="sort.agi">Best on ARC-AGI-2</option>
         </select>
       </div>
       <div id="hits" hidden></div>
@@ -495,6 +495,7 @@
   <ul id="glossary"></ul>
   <h2 data-t="about.sources">Where the numbers come from</h2>
   <p><span data-t="about.src1">Smartness, cost, price, speed and release dates come from </span><a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a><span data-t="about.src2">. ARC-AGI-2 scores come from the </span><a href="https://arcprize.org/leaderboard" target="_blank" rel="noopener" data-t="about.arcLink">ARC Prize leaderboard</a><span data-t="about.src3"> and are matched to the same model and effort setting; models ARC hasn't tested have no score.</span></p>
+  <p id="dixSrc" hidden><span data-t="about.dix1">Decision model scores, latency and sizes come from the </span><a href="https://huggingface.co/spaces/multimodalart/jev-decision-index" target="_blank" rel="noopener">Jev Decision Index</a><span data-t="about.dix2">, a community leaderboard on Hugging Face. It lists models still being tested only once they finish.</span></p>
   <p id="about-status"></p>
 </dialog>
 

@@ -1,7 +1,9 @@
 import { merge } from './merge.js';
+import { slimDecisions } from './decisions.js';
 
 const AA = 'https://artificialanalysis.ai/api/v2/language/models/free';
 const ARC = 'https://arcprize.org/media/data/';
+const DIX = 'https://huggingface.co/spaces/multimodalart/jev-decision-index/resolve/main/data/index.json'; // ~2 MB; slimmed to ~20 KB below
 // ponytail: Cache API is per data center; a miss costs ~4 AA calls (~690 models / 200 per page), so ~16 calls/day per DC: the 100/day free limit is hit at ~6 DCs. Cron + KV if it grows.
 const TTL = 6 * 3600;
 
@@ -31,17 +33,27 @@ export async function fetchARC() {
   }
 }
 
+export async function fetchDecisions() {
+  try {
+    const r = await fetch(DIX);
+    if (!r.ok) throw new Error(`Decision Index ${r.status}`);
+    return slimDecisions(await r.json());
+  } catch {
+    return []; // optional, like ARC: the language-model chart doesn't need it
+  }
+}
+
 export async function build(apiKey) {
-  const [aa, arc] = await Promise.all([fetchAA(apiKey), fetchARC()]);
+  const [aa, arc, decisions] = await Promise.all([fetchAA(apiKey), fetchARC(), fetchDecisions()]);
   if (!aa.length) throw new Error('Artificial Analysis returned no models'); // 502 → page falls back to the snapshot
-  return { updated: new Date().toISOString(), source: 'live', models: merge(aa, arc.models, arc.evals) };
+  return { updated: new Date().toISOString(), source: 'live', models: merge(aa, arc.models, arc.evals), decisions };
 }
 
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname !== '/api/models') return env.ASSETS.fetch(req);
-    const cacheKey = new Request(`${url.origin}/api/models?v=2`);
+    const cacheKey = new Request(`${url.origin}/api/models?v=3`);
     const hit = await caches.default.match(cacheKey);
     if (hit) return hit;
     try {
