@@ -33,31 +33,31 @@ export async function fetchARC() {
   }
 }
 
+// its own endpoint: parsing ~2 MB takes ~15 ms of CPU, which stays off the language-model request
 export async function fetchDecisions() {
-  try {
-    const r = await fetch(DIX);
-    if (!r.ok) throw new Error(`Decision Index ${r.status}`);
-    return slimDecisions(await r.json());
-  } catch {
-    return []; // optional, like ARC: the language-model chart doesn't need it
-  }
+  const r = await fetch(DIX);
+  if (!r.ok) throw new Error(`Decision Index ${r.status}`);
+  const decisions = slimDecisions(await r.json());
+  if (!decisions.length) throw new Error('Decision Index returned no models'); // 502 → page falls back to the snapshot
+  return { updated: new Date().toISOString(), source: 'live', decisions };
 }
 
 export async function build(apiKey) {
-  const [aa, arc, decisions] = await Promise.all([fetchAA(apiKey), fetchARC(), fetchDecisions()]);
+  const [aa, arc] = await Promise.all([fetchAA(apiKey), fetchARC()]);
   if (!aa.length) throw new Error('Artificial Analysis returned no models'); // 502 → page falls back to the snapshot
-  return { updated: new Date().toISOString(), source: 'live', models: merge(aa, arc.models, arc.evals), decisions };
+  return { updated: new Date().toISOString(), source: 'live', models: merge(aa, arc.models, arc.evals) };
 }
 
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
-    if (url.pathname !== '/api/models') return env.ASSETS.fetch(req);
-    const cacheKey = new Request(`${url.origin}/api/models?v=3`);
+    const API = { '/api/models': () => build(env.AA_API_KEY), '/api/decisions': fetchDecisions }[url.pathname];
+    if (!API) return env.ASSETS.fetch(req);
+    const cacheKey = new Request(`${url.origin}${url.pathname}?v=2`);
     const hit = await caches.default.match(cacheKey);
     if (hit) return hit;
     try {
-      const res = Response.json(await build(env.AA_API_KEY), { headers: { 'cache-control': `public, max-age=${TTL}` } });
+      const res = Response.json(await API(), { headers: { 'cache-control': `public, max-age=${TTL}` } });
       ctx.waitUntil(caches.default.put(cacheKey, res.clone()));
       return res;
     } catch (e) {

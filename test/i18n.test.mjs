@@ -36,6 +36,7 @@ test('the verdict names standout, good and weak measures, in either language', (
       'یکی از سریع‌ترین و باهوش‌ترین مدل‌ها. بالاتر از میانگین در هزینه هر کار. پایین‌تر از میانگین در قیمت.'],
     [[['speed', 92], ['agi', 97]], 'One of the fastest models, and among the best at ARC-AGI-2.', 'یکی از سریع‌ترین مدل‌ها و از بهترین‌ها در ARC-AGI-2.'],
     [[['agi', 97]], 'Among the best at ARC-AGI-2.', 'از بهترین‌ها در ARC-AGI-2.'],
+    [[['knowledge', 99], ['tools', 95]], 'One of the most knowledgeable models, and among the best at tool use.', 'یکی از داناترین مدل‌ها و از بهترین‌ها در کار با ابزار.'], // decision models: no one-word superlative for tool use
     [[['intelligence', 70], ['cost', 65], ['agi', 80]], 'Above average on smartness, cost per task and ARC-AGI-2.', 'بالاتر از میانگین در هوشمندی، هزینه هر کار و ARC-AGI-2.'],
     [[['intelligence', 50], ['agi', null]], 'About average across the board.', 'در همه سنجه‌ها نزدیک به میانگین.'],
   ];

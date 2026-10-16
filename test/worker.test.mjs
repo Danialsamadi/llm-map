@@ -1,6 +1,6 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchAA, build } from '../src/worker.js';
+import { fetchAA, build, fetchDecisions } from '../src/worker.js';
 
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -44,4 +44,9 @@ test('ARC failure leaves agi null', async () => {
 test('empty AA list is an error, not an empty "live" payload', async () => {
   globalThis.fetch = async (url) => String(url).includes('arcprize') ? json([]) : json({ data: [], pagination: { has_more: false } });
   await assert.rejects(build('k'), /Artificial Analysis returned no models/);
+});
+
+test('decision models come from their own request and fail loudly when empty', async () => {
+  globalThis.fetch = async () => json({ suite: { headline: 'balanced_skill' }, models: [] });
+  await assert.rejects(fetchDecisions(), /no models/);
 });

@@ -7,7 +7,8 @@ if (!base) { console.error('Usage: node scripts/snapshot.mjs <worker-url>'); pro
 const r = await fetch(new URL('/api/models', base));
 if (!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
 const data = await r.json();
-if (!data.decisions?.length) data.decisions = await fetchDecisions(); // a site deployed before decision models: straight from the leaderboard
+const dr = await fetch(new URL('/api/decisions', base)).catch(() => null); // a site deployed before decision models: straight from the leaderboard
+data.decisions = (dr?.ok ? await dr.json() : await fetchDecisions()).decisions;
 const METRICS = ['intelligence', 'cost', 'price', 'speed', 'agi'];
 const rich = data.models.filter(m => METRICS.filter(k => m[k] != null).length >= 3).length;
 console.log(`${data.models.length} models, ${rich} with ≥3 metrics, ${data.models.filter(m => m.agi != null).length} with ARC-AGI-2, ${data.decisions.length} decision models`);

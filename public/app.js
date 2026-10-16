@@ -113,10 +113,9 @@ function chrome() {
 
 async function load() {
   try {
-    const r = await fetch('/api/models');
+    const r = await fetch(SET === 'decision' ? '/api/decisions' : '/api/models');
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
-    if (SET === 'decision' && !d.decisions?.length) throw new Error('no decision models'); // the leaderboard was down: the saved copy has them
     return { ...d, models: SET === 'decision' ? d.decisions : d.models, mode: 'live' };
   } catch {
     const r = await fetch('models.json');

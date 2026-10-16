@@ -36,7 +36,7 @@ export const ride = {
     ahead.onclick = () => { free = false; };
     controls.replaceChildren(el('div', { className: 'ride' }, play, slower, rate, faster, range, ahead));
 
-    const passing = () => { const m = getState().models[line.models[path.reached(dist)]]; return tr('sv.passing', { name: m.name, date: month(m.release) }); };
+    const passing = () => { const m = getState().models[line.models[path.reached(dist)]]; return 'release' in m ? tr('sv.passing', { name: m.name, date: month(m.release) }) : tr('sv.passingName', { name: m.name }); }; // decision models have no dates at all
     return {
       title: passing(),
       pose: { position: V(path.at(0)), look: V(path.at(0.3)), fov: 75 },
