@@ -1,6 +1,6 @@
 // Street View: drag the figure into the chart to stand at a model, ride a company's line or fly around.
 import * as THREE from 'three';
-import { betterSign, FLY_START } from './space.js';
+import { betterSign, FLY_START, pickTags } from './space.js';
 import { t, fmt } from './i18n.js';
 import { spring, tracker } from './spring.js';
 import { stand } from './modes/stand.js';
@@ -214,23 +214,22 @@ export function createStreetView({ scene, getState, showCard, onChange, lang = '
   function zoom(f) { cam.fov = Math.min(90, Math.max(30, cam.fov * f)); cam.updateProjectionMatrix(); }
 
   // ---------- name tags on the 8 models nearest to the eye ----------
+  const v = new THREE.Vector3(), within = (p, r) => { v.copy(p).project(cam); return v.z < 1 && Math.abs(v.x) < r && Math.abs(v.y) < r; }; // v keeps the projection for placing the tag
   function updateTags(t) {
     if (t - lastTagPick > 250) {
       lastTagPick = t;
-      const ids = scene.visible().map(j => [j, scene.worldOf(j).distanceTo(cam.position)]).filter(([, d]) => d > 0.02)
-        .sort((a, b) => a[1] - b[1]).slice(0, 8).map(([j]) => j);
+      const ids = pickTags(scene.visible().map(j => { const p = scene.worldOf(j); return { j, d: p.distanceTo(cam.position), inView: within(p, 1.05), central: within(p, 0.8) }; }), 8, tags.map(x => x.j));
       if (ids.join() !== tags.map(x => x.j).join()) {
         const { models } = getState();
         tags = ids.map(j => { const b = el('button', { className: 'tag', textContent: models[j].name }); b.onclick = () => run?.tagTap?.(j) || showCard(j); return { j, b }; });
         $('tags').replaceChildren(...tags.map(x => x.b));
       }
     }
-    const w = canvas.clientWidth, h = canvas.clientHeight, v = new THREE.Vector3();
+    const w = canvas.clientWidth, h = canvas.clientHeight;
     for (const { j, b } of tags) {
       const p = scene.worldOf(j);
       if (!p) { b.hidden = true; continue; }
-      v.copy(p).project(cam);
-      b.hidden = !(v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05);
+      b.hidden = !within(p, 1.05);
       if (!b.hidden) b.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h}px) translate(-50%, -150%)`;
     }
   }

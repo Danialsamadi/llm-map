@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, leaders } from '../public/space.js';
+import { makeScale, ticks, layout, nearest, compare, betterSign, makePath, segDist, readSV, writeSV, emphasis, percentile, rangeScale, inRanges, readRanges, writeRanges, searchModels, frontier, leaders, pickTags } from '../public/space.js';
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 
@@ -206,4 +206,13 @@ test('comparing models: who leads each measure, only when one model clearly does
   ];
   assert.deepEqual(leaders(ms, ['intelligence', 'cost', 'speed', 'agi', 'release']), [['intelligence', 0], ['cost', 2], ['release', 0]]);
   // speed: a tie, so nobody leads; agi: only one model has a score, so there is nothing to compare
+});
+
+test('pickTags keeps labels steady while flying: new ones start near the middle, old ones stay until they leave the screen', () => {
+  // inView: on screen at all; central: well inside it. The nearest dots are often behind you or about to slide off the edge.
+  const c = (j, d, inView, central = inView) => ({ j, d, inView, central });
+  const cands = [c(1, 0.1, false), c(2, 0.3, true), c(3, 0.2, true), c(4, 0.01, true), c(5, 0.5, true), c(6, 0.15, true, false)];
+  assert.deepEqual(pickTags(cands, 2, []), [3, 2]); // 1 is behind you, 4 is where you stand, 6 is about to leave the screen
+  assert.deepEqual(pickTags(cands, 2, [6, 1]), [6, 3]); // 6 already has a label and is still on screen: it keeps it; 1 went behind you
+  assert.deepEqual(pickTags(cands, 2, [5, 2]), [5, 2]); // both still on screen: no reshuffle, though 3 is nearer
 });

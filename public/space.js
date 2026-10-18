@@ -61,6 +61,16 @@ export function nearest(pos, from, n, exclude) {
 }
 
 const LOWER = new Set(['cost', 'price', 'latency', 'size']); // measures where less is better
+// Street View's n name tags, steady while you move: a model keeps its tag while its dot stays on screen, and free tags go to the
+// nearest dots well inside the screen. Picking the nearest dots anywhere put tags on dots behind you or about to slide off the edge,
+// so tags flashed on for a few frames. cands: [{ j, d: distance to the eye, inView, central }]; current: the tagged models now.
+export function pickTags(cands, n, current) {
+  const by = new Map(cands.map(c => [c.j, c])), ok = c => c && c.d > 0.02; // the dot you stand on gets none
+  const keep = current.filter(j => ok(by.get(j)) && by.get(j).inView).slice(0, n);
+  const fresh = cands.filter(c => ok(c) && c.central && !keep.includes(c.j)).sort((a, b) => a.d - b.d).slice(0, n - keep.length).map(c => c.j);
+  return [...keep, ...fresh];
+}
+
 export const betterSign = k => (LOWER.has(k) ? -1 : 1);
 
 // How `to` differs from `from`, in words, from the two biggest differences (cube units).
